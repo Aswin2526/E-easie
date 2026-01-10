@@ -79,7 +79,7 @@ const styles = {
   },
   footerCTA: {
     padding: "80px 40px",
-    background: "#1a1a1a",
+    background: "#1a1a2e",
     color: "#fff",
     textAlign: "center",
   },
