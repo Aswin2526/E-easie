@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { NotifyProvider } from "./contexts/NotifyContext";
+import ScrollToTop from "./components/ScrollToTop";
 import Layout from "./components/Layout";
 import AuthLayout from "./components/AuthLayout";
 import AdminLayout from "./components/admin/AdminLayout";
@@ -28,6 +29,7 @@ import DirectCheckoutPage from "./pages/DirectCheckoutPage";
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <NotifyProvider>
       <Routes>
         <Route element={<Layout />}>

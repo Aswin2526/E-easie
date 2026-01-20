@@ -155,7 +155,7 @@ export default function AdminLayout() {
           me={me}
           title={title}
         />
-        <div style={styles.pageContent}>
+        <div style={styles.pageContent} data-admin-page-content>
           <Outlet context={outletContext} />
         </div>
       </div>
