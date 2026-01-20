@@ -644,11 +644,6 @@ export default function CustomizePage() {
     <div style={s.wrap}>
       <header style={s.header}>
         <h1 style={s.title}>Customize</h1>
-        <p style={s.sub}>
-          Pick a category, then a product. Each item loads the <strong>original fabric and colors</strong> from the
-          catalog. Changing fabric adds <strong>25%</strong> vs that original; changing colors adds{" "}
-          <strong>20%</strong> (shown in the price line). Or use <strong>Buy now</strong> for checkout with eSewa.
-        </p>
       </header>
 
       <section style={s.pickSection} aria-label="Choose category and product">
