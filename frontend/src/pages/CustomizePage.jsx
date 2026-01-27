@@ -705,7 +705,7 @@ export default function CustomizePage() {
           <div
             style={{
               ...s.productBrowseCol,
-              ...(selectedCategory ? s.productBrowseColScrollable : {}),
+              ...(selectedCategory ? s.productBrowseColScrollable : { flex: "0 0 auto" }),
             }}
           >
             {relatedShowcase && relatedCatalogProduct && selectedCategory !== "trending" ? (
