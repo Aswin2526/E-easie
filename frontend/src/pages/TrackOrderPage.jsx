@@ -545,7 +545,13 @@ export default function TrackOrderPage() {
             <h2 style={s.cardTitle}>Messages</h2>
             <div style={s.msgList}>
               {(selectedOrder.messages || []).map((m, idx) => (
-                <div key={`${m.created_at}-${idx}`} style={s.msgItem}>
+                <div
+                  key={`${m.created_at}-${idx}`}
+                  style={{
+                    ...s.msgItem,
+                    ...(idx > 0 ? s.msgItemDivider : {}),
+                  }}
+                >
                   <p style={s.msgMeta}>{m.from === "admin" ? "Admin update" : "Message"}</p>
                   <p style={s.msgText}>{m.text}</p>
                 </div>
@@ -709,8 +715,14 @@ const s = {
     fontSize: "14px",
     resize: "vertical",
   },
-  msgList: { display: "grid", gap: "10px" },
-  msgItem: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px", background: "#fff" },
+  msgList: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    background: "#fff",
+    overflow: "hidden",
+  },
+  msgItem: { padding: "12px 14px" },
+  msgItemDivider: { borderTop: "1px solid #e2e8f0" },
   msgMeta: { margin: 0, color: "#334155", fontSize: 12, fontWeight: 700 },
   msgText: { margin: "4px 0 0", color: "#0f172a", lineHeight: 1.5 },
   policyText: { margin: "0 0 12px 0", color: "#475569", fontSize: "14px", lineHeight: 1.55 },
