@@ -1350,24 +1350,7 @@ export default function CustomizePage() {
           <div style={s.orderQtyBlock}>
             <span style={s.orderQtyLabel}>Quantity</span>
             <div style={s.orderQtyStepper} aria-label="Quantity">
-              <button
-                type="button"
-                style={s.orderQtyBtn}
-                onClick={() => setOrderQty((q) => Math.max(1, q - 1))}
-                aria-label="Decrease quantity"
-              >
-                −
-              </button>
               <span style={s.orderQtyNum}>{orderQty}</span>
-              <button
-                type="button"
-                style={s.orderQtyBtn}
-                onClick={() => setOrderQty((q) => Math.min(maxOrderQtyForCart, q + 1))}
-                disabled={orderQty >= maxOrderQtyForCart}
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
             </div>
           </div>
           <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
