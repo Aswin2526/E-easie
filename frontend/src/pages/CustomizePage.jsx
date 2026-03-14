@@ -1344,9 +1344,6 @@ export default function CustomizePage() {
       <section style={s.orderSection}>
         <form onSubmit={handleAddToCartFlow} style={s.form}>
           <h2 style={s.stepTitle}>Add to Cart</h2>
-          <p style={s.stepHint}>
-            Satisfied with your design? Save it first, then add to your shopping cart.
-          </p>
           <div style={s.orderQtyBlock}>
             <span style={s.orderQtyLabel}>Quantity</span>
             <div style={s.orderQtyStepper} aria-label="Quantity">
