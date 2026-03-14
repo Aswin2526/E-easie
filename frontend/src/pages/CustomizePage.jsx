@@ -1344,12 +1344,6 @@ export default function CustomizePage() {
       <section style={s.orderSection}>
         <form onSubmit={handleAddToCartFlow} style={s.form}>
           <h2 style={s.stepTitle}>Add to Cart</h2>
-          <div style={s.orderQtyBlock}>
-            <span style={s.orderQtyLabel}>Quantity</span>
-            <div style={s.orderQtyStepper} aria-label="Quantity">
-              <span style={s.orderQtyNum}>{orderQty}</span>
-            </div>
-          </div>
           <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
             {ordering ? "Adding..." : "Add to Cart"}
           </button>
