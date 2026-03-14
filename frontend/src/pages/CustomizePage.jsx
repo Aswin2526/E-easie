@@ -1347,6 +1347,14 @@ export default function CustomizePage() {
           <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
             {ordering ? "Adding..." : "Add to Cart"}
           </button>
+          <button
+            type="button"
+            style={s.secondary}
+            disabled={!savedCustomizationId}
+            onClick={() => navigate("/cart")}
+          >
+            Proceed to Checkout
+          </button>
         </form>
       </section>
             </div>
