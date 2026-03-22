@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f4f4f5"/>
+      <stop offset="100%" style="stop-color:#e4e4e7"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="240" fill="url(#bg)"/>
+  <path fill="#3f3f46" d="M80 72h40l20 24h40l20-24h40v16l-28 12v88H108V100L80 88V72zm60 40v72h40v-72h-40z"/>
+  <text x="160" y="218" text-anchor="middle" fill="#71717a" font-family="system-ui,sans-serif" font-size="13" font-weight="600">T-shirt</text>
+</svg>

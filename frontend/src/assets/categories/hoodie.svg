@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+  <defs>
+    <linearGradient id="h" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f4f4f5"/>
+      <stop offset="100%" style="stop-color:#d4d4d8"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="240" fill="url(#h)"/>
+  <path fill="#27272a" d="M70 88c0-8 8-16 20-16h12l8 20h80l8-20h12c12 0 20 8 20 16v8l-32 16v84H102v-84L70 96v-8zm90 36v72h40v-72h-40z"/>
+  <ellipse cx="160" cy="68" rx="36" ry="28" fill="#27272a"/>
+  <text x="160" y="218" text-anchor="middle" fill="#71717a" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Hoodie</text>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+  <defs>
+    <linearGradient id="j" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5f5f4"/>
+      <stop offset="100%" style="stop-color:#d6d3d1"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="240" fill="url(#j)"/>
+  <path fill="#44403c" d="M78 80h48l14 16h40l14-16h48l20 20v96H78V100l0-20zm42 36v80h40v-80h-40zm60 0v80h40v-80h-40z"/>
+  <path fill="#78716c" d="M152 96h16v8h-16v-8z"/>
+  <text x="160" y="218" text-anchor="middle" fill="#78716c" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Jacket</text>
+</svg>

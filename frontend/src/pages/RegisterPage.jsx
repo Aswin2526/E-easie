@@ -1,20 +1,35 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { registerUser } from "../api";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (name && email && password) {
-      alert("Registration Successful");
+    setError(null);
+    if (!username || !email || !password || !password2) {
+      setError("Please fill all fields.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await registerUser({ username, email, password, password2 });
       navigate("/login");
-    } else {
-      alert("Please fill all fields");
+    } catch (err) {
+      setError(
+        typeof err.data === "object"
+          ? JSON.stringify(err.data)
+          : err.message || "Registration failed."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -25,10 +40,11 @@ export default function RegisterPage() {
 
         <input
           type="text"
-          placeholder="Full Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           style={styles.input}
+          autoComplete="username"
         />
 
         <input
@@ -37,6 +53,7 @@ export default function RegisterPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={styles.input}
+          autoComplete="email"
         />
 
         <input
@@ -45,25 +62,30 @@ export default function RegisterPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={styles.input}
+          autoComplete="new-password"
         />
 
         <input
           type="password"
-          placeholder="Confirm Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Confirm password"
+          value={password2}
+          onChange={(e) => setPassword2(e.target.value)}
           style={styles.input}
+          autoComplete="new-password"
         />
 
-        <button type="submit" style={styles.button}>
-          Register
+        {error && <p style={styles.error}>{error}</p>}
+
+        <button type="submit" style={styles.button} disabled={loading}>
+          {loading ? "Creating account…" : "Register"}
         </button>
 
-
-
         <p>
-           <br />
+          <br />
           Already have an account? <Link to="/login">Login</Link>
+        </p>
+        <p style={styles.back}>
+          <Link to="/">← Back to home</Link>
         </p>
       </form>
     </div>
@@ -81,7 +103,7 @@ const styles = {
   card: {
     background: "#fff",
     padding: "30px",
-    width: "300px",
+    width: "320px",
     borderRadius: "8px",
     boxShadow: "0 0 10px rgba(0,0,0,0.1)",
     textAlign: "center",
@@ -90,6 +112,7 @@ const styles = {
     width: "100%",
     padding: "10px",
     margin: "10px 0",
+    boxSizing: "border-box",
   },
   button: {
     width: "100%",
@@ -98,5 +121,9 @@ const styles = {
     color: "#fff",
     border: "none",
     cursor: "pointer",
+    borderRadius: "6px",
+    fontWeight: "600",
   },
+  error: { color: "#b91c1c", fontSize: "13px", marginTop: "8px", textAlign: "left" },
+  back: { marginTop: "12px", fontSize: "14px" },
 };

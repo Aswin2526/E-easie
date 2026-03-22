@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+  <defs>
+    <linearGradient id="p" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fafafa"/>
+      <stop offset="100%" style="stop-color:#e4e4e7"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="240" fill="url(#p)"/>
+  <path fill="#52525b" d="M118 48h84l8 12v12h-32l-6 120h-44l-10-120H96V60l22-12zm-6 24l8 120h36l6-120H112zm68 0h36l6 120h36l8-120h-40l-6-12h-40z"/>
+  <text x="160" y="218" text-anchor="middle" fill="#71717a" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Pants</text>
+</svg>

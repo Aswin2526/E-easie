@@ -1,20 +1,33 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { loginUser } from "../api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // simple fake login
-    if (email && password) {
-      alert("Login Successful");
-      navigate("/register");
-    } else {
-      alert("Please fill all fields");
+    setError(null);
+    if (!email || !password) {
+      setError("Please fill all fields.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await loginUser(email, password);
+      navigate("/");
+    } catch (err) {
+      setError(
+        typeof err.data === "object" && err.data?.detail
+          ? String(err.data.detail)
+          : err.message || "Login failed."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,6 +42,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={styles.input}
+          autoComplete="username"
         />
 
         <input
@@ -37,15 +51,21 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={styles.input}
+          autoComplete="current-password"
         />
 
-        <button type="submit" style={styles.button}>
-          Login
+        {error && <p style={styles.error}>{error}</p>}
+
+        <button type="submit" style={styles.button} disabled={loading}>
+          {loading ? "Signing in…" : "Login"}
         </button>
 
-        <p> 
+        <p>
           <br />
           Don’t have an account? <Link to="/register">Register</Link>
+        </p>
+        <p style={styles.back}>
+          <Link to="/">← Back to home</Link>
         </p>
       </form>
     </div>
@@ -63,7 +83,7 @@ const styles = {
   card: {
     background: "#fff",
     padding: "30px",
-    width: "300px",
+    width: "320px",
     borderRadius: "8px",
     boxShadow: "0 0 10px rgba(0,0,0,0.1)",
     textAlign: "center",
@@ -72,6 +92,7 @@ const styles = {
     width: "100%",
     padding: "10px",
     margin: "10px 0",
+    boxSizing: "border-box",
   },
   button: {
     width: "100%",
@@ -80,5 +101,9 @@ const styles = {
     color: "#fff",
     border: "none",
     cursor: "pointer",
+    borderRadius: "6px",
+    fontWeight: "600",
   },
+  error: { color: "#b91c1c", fontSize: "14px", marginTop: "8px" },
+  back: { marginTop: "12px", fontSize: "14px" },
 };

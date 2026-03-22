@@ -6,29 +6,9 @@ import summerFloralDress from "../assets/summer_floral_dress.png";
 import tailoredWoolSuit from "../assets/tailored_wool_suit.png";
 import casualDenimJacket from "../assets/casual_denim_jacket.png";
 
-export default function Homepage() {
+export default function HomePage() {
     return (
         <div style={styles.container}>
-            {/* Navbar */}
-            <nav style={styles.navbar}>
-                <div style={styles.navLeft}>
-                    <div style={styles.logoCircle}>
-                        <span style={styles.logoText}>e-easie</span>
-                    </div>
-                </div>
-                <div style={styles.navCenter}>
-                    <Link to="/" style={styles.navLink}>HOME</Link>
-                    <Link to="#" style={styles.navLink}>CATEGORY</Link>
-                    <Link to="#" style={styles.navLink}>CUSTOMIZE</Link>
-                    <Link to="#" style={styles.navLink}>TRACK ORDER</Link>
-                </div>
-                <div style={styles.navRight}>
-                    <span style={styles.icon}>🔍</span>
-                    <span style={styles.icon}>🛒<span style={styles.badge}>0</span></span>
-                    <Link to="/login" style={styles.authLink}>👤 Sign In</Link>
-                </div>
-            </nav>
-
             {/* Hero Section */}
             <section style={styles.hero}>
                 <div style={styles.heroOverlay}>
@@ -37,8 +17,8 @@ export default function Homepage() {
                         Design your own clothing or choose from our curated selection of fabrics, styles, and fits. Perfect fit, every time.
                     </p>
                     <div style={styles.heroButtons}>
-                        <button style={{ ...styles.button, ...styles.primaryButton }}>Start Customizing ➜</button>
-                        <button style={{ ...styles.button, ...styles.secondaryButton }}>Shop Collection</button>
+                        <Link to="/customize" style={{ ...styles.button, ...styles.primaryButton, ...styles.heroLink }}>Start Customizing ➜</Link>
+                        <Link to="/category" style={{ ...styles.button, ...styles.secondaryButton, ...styles.heroLink }}>Shop Collection</Link>
                     </div>
                 </div>
             </section>
@@ -163,67 +143,6 @@ const styles = {
         fontFamily: "'Arial', sans-serif",
         color: "#333",
     },
-    navbar: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "20px 40px",
-        background: "#fff",
-    },
-    navLeft: {
-        display: "flex",
-        alignItems: "center",
-    },
-    logoCircle: {
-        background: "#000",
-        color: "#fff",
-        borderRadius: "50%",
-        width: "40px",
-        height: "40px",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: "10px",
-    },
-    logoText: {
-        fontWeight: "bold",
-        fontSize: "10px",
-    },
-    navCenter: {
-        display: "flex",
-        gap: "30px",
-    },
-    navLink: {
-        textDecoration: "none",
-        color: "#333",
-        fontSize: "12px",
-        fontWeight: "600",
-        letterSpacing: "1px",
-    },
-    navRight: {
-        display: "flex",
-        alignItems: "center",
-        gap: "20px",
-    },
-    icon: {
-        fontSize: "18px",
-        cursor: "pointer",
-    },
-    badge: {
-        fontSize: "10px",
-        background: "#000",
-        color: "#fff",
-        borderRadius: "50%",
-        padding: "2px 5px",
-        verticalAlign: "top",
-        marginLeft: "-5px",
-    },
-    authLink: {
-        textDecoration: "none",
-        color: "#333",
-        fontSize: "14px",
-        fontWeight: "600",
-    },
     hero: {
         backgroundImage: `url(${heroBanner})`,
         backgroundSize: "cover",
@@ -272,6 +191,11 @@ const styles = {
         background: "transparent",
         border: "2px solid #000",
         color: "#000",
+    },
+    heroLink: {
+        display: "inline-block",
+        textAlign: "center",
+        textDecoration: "none",
     },
     featuresSection: {
         padding: "80px 40px",
