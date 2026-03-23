@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { trackOrder } from "../api";
+import { formatNPR } from "../currency";
 
 export default function TrackOrderPage() {
   const [orderId, setOrderId] = useState("");
@@ -75,7 +76,7 @@ export default function TrackOrderPage() {
           <div style={s.rows}>
             <Row label="Status" value={result.status} />
             <Row label="Quantity" value={result.quantity} />
-            <Row label="Total" value={`$${result.total_price}`} />
+            <Row label="Total" value={formatNPR(result.total_price)} />
             <Row label="Placed" value={result.placed_at} />
             <Row label="Ship to" value={result.shipping_address} />
             <Row label="Design" value={result.customization_summary} />

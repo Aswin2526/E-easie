@@ -1,6 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchProducts, placeOrder, saveCustomization } from "../api";
+import { formatNPR } from "../currency";
+import { getProductImageSrc } from "../productImages";
+
+
+const PRIMARY_CATEGORIES = [
+  { type: "pant", label: "Pant" },
+  { type: "skirt", label: "Skirt" },
+  { type: "hoodie", label: "Hoodie" },
+  { type: "shirt", label: "Shirt" },
+  { type: "tshirt", label: "T-shirt" },
+  { type: "jacket", label: "Jacket" },
+];
 
 const FABRICS = [
   { value: "cotton", label: "Cotton" },
@@ -14,29 +26,47 @@ const FABRICS = [
 const SIZES = ["S", "M", "L", "XL", "CUSTOM"];
 
 export default function CustomizePage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const productFromUrl = searchParams.get("product");
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [productId, setProductId] = useState(productFromUrl || "");
-  const [title, setTitle] = useState("");
   const [fabric, setFabric] = useState("cotton");
   const [bodyColor, setBodyColor] = useState("#2d2d2d");
+  const [backColor, setBackColor] = useState("#2d2d2d");
   const [sleevesColor, setSleevesColor] = useState("#2d2d2d");
   const [collarColor, setCollarColor] = useState("#ffffff");
   const [size, setSize] = useState("M");
   const [customSize, setCustomSize] = useState("");
   const [pattern, setPattern] = useState("plain");
+  const [patternPrimaryColor, setPatternPrimaryColor] = useState("#111111");
+  const [patternSecondaryColor, setPatternSecondaryColor] = useState("#ffffff");
   const [hasCollar, setHasCollar] = useState(false);
   const [sleeveStyle, setSleeveStyle] = useState("full");
   const [hasPocket, setHasPocket] = useState(false);
   const [pocketPosition, setPocketPosition] = useState("left_chest");
+  const [pantPockets, setPantPockets] = useState([]);
+  const [skirtPocket, setSkirtPocket] = useState("one_side");
+  const [hoodieZipper, setHoodieZipper] = useState("zipper");
+  const [hoodiePocket, setHoodiePocket] = useState("pocket");
+  const [shirtPocket, setShirtPocket] = useState("left_chest");
+  const [tshirtPocket, setTshirtPocket] = useState("left_chest");
+  const [jacketPocket, setJacketPocket] = useState("both_chest");
   const [hasHoodie, setHasHoodie] = useState(false);
   const [pantLength, setPantLength] = useState("full");
+  const [skirtLength, setSkirtLength] = useState("full");
+  const [hoodieLength, setHoodieLength] = useState("full");
+  const [shirtLength, setShirtLength] = useState("full");
+  const [tshirtLength, setTshirtLength] = useState("full");
+  const [jacketLength, setJacketLength] = useState("full");
   const [neckDesign, setNeckDesign] = useState("crew");
+  const [shirtNeckDesign, setShirtNeckDesign] = useState("v_neck");
+  const [tshirtNeckDesign, setTshirtNeckDesign] = useState("crew");
+  const [jacketNeckDesign, setJacketNeckDesign] = useState("v_neck");
   const [notes, setNotes] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -57,11 +87,6 @@ export default function CustomizePage() {
         const list = Array.isArray(data) ? data : data.results || [];
         if (cancelled) return;
         setProducts(list);
-        if (productFromUrl) {
-          setProductId(productFromUrl);
-        } else if (list.length) {
-          setProductId(String(list[0].id));
-        }
       } catch (e) {
         if (!cancelled) setError(e.message || "Could not load products.");
       } finally {
@@ -71,23 +96,139 @@ export default function CustomizePage() {
     return () => {
       cancelled = true;
     };
-  }, [productFromUrl]);
+  }, []);
+
+  useEffect(() => {
+    if (!products.length) return;
+    if (productFromUrl) {
+      const p = products.find((x) => String(x.id) === String(productFromUrl));
+      if (p) {
+        setSelectedCategory(p.product_type);
+        setProductId(String(p.id));
+      }
+    }
+  }, [products, productFromUrl]);
+
+  const countByType = useMemo(() => {
+    const m = {};
+    for (const p of products) {
+      m[p.product_type] = (m[p.product_type] || 0) + 1;
+    }
+    return m;
+  }, [products]);
+
+  const productsInCategory = useMemo(() => {
+    if (!selectedCategory) return [];
+    return products
+      .filter((p) => p.product_type === selectedCategory)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, selectedCategory]);
+
+  useEffect(() => {
+    if (!productId) return;
+    const stillVisible = productsInCategory.some(
+      (p) => String(p.id) === String(productId)
+    );
+    if (!stillVisible) {
+      setProductId("");
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("product");
+        return next;
+      });
+    }
+  }, [productsInCategory, productId, setSearchParams]);
+
+  function handleSelectCategory(type) {
+    setSelectedCategory(type);
+    setProductId("");
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("product");
+      return next;
+    });
+  }
+
+  function handleSelectProduct(id) {
+    const sid = String(id);
+    setProductId(sid);
+    setSearchParams({ product: sid });
+  }
 
   const selectedProduct = useMemo(
     () => products.find((p) => String(p.id) === String(productId)),
     [products, productId]
   );
 
-  const isPant = selectedProduct?.product_type === "pant";
+  const activeProductType = selectedProduct?.product_type || selectedCategory;
+  const isPant = activeProductType === "pant";
+  const isSkirt = activeProductType === "skirt";
+  const isHoodie = activeProductType === "hoodie";
+  const isShirt = activeProductType === "shirt";
+  const isTshirt = activeProductType === "tshirt";
+  const isJacket = activeProductType === "jacket";
 
   const partColors = useMemo(
     () => ({
-      body: bodyColor,
-      sleeves: sleevesColor,
-      collar: collarColor,
+      ...(isPant
+        ? {
+            front: bodyColor,
+            back: backColor,
+          }
+        : isSkirt
+          ? {
+              body: bodyColor,
+            }
+          : isHoodie
+            ? {
+                body: bodyColor,
+                sleeves: sleevesColor,
+              }
+            : isJacket
+              ? {
+                  body: bodyColor,
+                  sleeves: sleevesColor,
+                }
+            : isTshirt
+              ? {
+                  body: bodyColor,
+                }
+        : {
+            body: bodyColor,
+            sleeves: sleevesColor,
+            collar: collarColor,
+          }),
+      ...((isPant || isSkirt || isShirt || isJacket) && pattern !== "plain"
+        ? {
+            ...(isPant || isShirt || isJacket
+              ? {
+                  pattern_primary: patternPrimaryColor,
+                  pattern_secondary: patternSecondaryColor,
+                }
+              : {
+                  pattern_primary: patternPrimaryColor,
+                }),
+          }
+        : {}),
     }),
-    [bodyColor, sleevesColor, collarColor]
+    [
+      isPant,
+      bodyColor,
+      backColor,
+      sleevesColor,
+      collarColor,
+      isSkirt,
+      isHoodie,
+      isShirt,
+      isTshirt,
+      isJacket,
+      pattern,
+      patternPrimaryColor,
+      patternSecondaryColor,
+    ]
   );
+  const patternForPayload =
+    pattern === "check" || pattern === "lines" ? "check_line" : pattern;
 
   async function handleSaveDesign(e) {
     e.preventDefault();
@@ -99,19 +240,77 @@ export default function CustomizePage() {
     }
     const payload = {
       product: Number(productId),
-      title: title.trim(),
+      title: "",
       fabric,
       part_colors: partColors,
       size,
       custom_size: customSize.trim(),
-      pattern,
-      has_collar: hasCollar,
-      sleeve_style: sleeveStyle,
-      has_pocket: hasPocket,
-      pocket_position: hasPocket ? pocketPosition : "",
-      has_hoodie: hasHoodie,
-      pant_length: isPant ? pantLength : "",
-      neck_design: neckDesign,
+      pattern: isHoodie || isTshirt ? "plain" : patternForPayload,
+      has_collar: !isPant && !isSkirt && !isHoodie && !isShirt ? hasCollar : false,
+      sleeve_style: !isPant && !isSkirt ? sleeveStyle : "",
+      has_pocket: isPant
+        ? pantPockets.length > 0
+        : isSkirt
+          ? true
+          : isHoodie
+            ? hoodiePocket === "pocket"
+          : isShirt
+            ? shirtPocket !== "none"
+          : isTshirt
+            ? tshirtPocket !== "none"
+          : isJacket
+            ? true
+            : hasPocket,
+      pocket_position: isPant
+        ? pantPockets.join(",")
+        : isSkirt
+          ? skirtPocket
+        : isHoodie
+          ? hoodiePocket === "pocket"
+            ? "front"
+            : ""
+        : isShirt
+          ? shirtPocket === "none"
+            ? ""
+            : shirtPocket === "both"
+              ? "left_chest,right_chest"
+              : "left_chest"
+        : isTshirt
+          ? tshirtPocket === "left_chest"
+            ? "left_chest"
+            : ""
+        : isJacket
+          ? jacketPocket
+        : hasPocket
+          ? pocketPosition
+          : "",
+      has_hoodie: isHoodie
+        ? hoodieZipper === "zipper"
+        : !isPant && !isSkirt && !isShirt && !isTshirt
+          ? hasHoodie
+          : false,
+      pant_length: isPant
+        ? pantLength
+        : isSkirt
+          ? skirtLength
+          : isHoodie
+            ? hoodieLength
+            : isShirt
+              ? shirtLength
+              : isTshirt
+                ? tshirtLength
+                : isJacket
+                  ? jacketLength
+              : "",
+      neck_design: isShirt
+        ? shirtNeckDesign
+        : isTshirt
+          ? tshirtNeckDesign
+          : isJacket
+            ? jacketNeckDesign
+          : !isPant && !isSkirt && !isHoodie
+            ? neckDesign
+            : "",
       notes: notes.trim(),
     };
     setSaving(true);
@@ -179,42 +378,93 @@ export default function CustomizePage() {
       <header style={s.header}>
         <h1 style={s.title}>Customize</h1>
         <p style={s.sub}>
-          Choose fabric, segment colors (body / sleeves / collar), size, and style
-          options. Save your design, then place an order.
+          Pick a category, then a product. Adjust fabric, colors, size, and style save
+          your design, then place an order.
         </p>
-        <p style={s.hint}>
-          No products? Run{" "}
-          <code style={s.code}>python manage.py seed_demo</code> in the backend folder.
-        </p>
+        
       </header>
 
-      <form onSubmit={handleSaveDesign} style={s.form}>
-        <label style={s.label}>
-          Product
-          <select
-            style={s.input}
-            value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-            required
-          >
-            <option value="">Select…</option>
-            {products.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.product_type_display || p.product_type})
-              </option>
-            ))}
-          </select>
-        </label>
+      <section style={s.pickSection} aria-label="Choose category and product">
+        <div style={s.stepRow}>
+          <span style={s.stepBadge}>1</span>
+          <h2 style={s.stepTitle}>Category</h2>
+        </div>
+        <p style={s.stepHint}>Select a garment type. Your choice is highlighted.</p>
+        <div style={s.categoryGrid}>
+          {PRIMARY_CATEGORIES.map(({ type, label }) => {
+            const count = countByType[type] ?? 0;
+            const active = selectedCategory === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleSelectCategory(type)}
+                style={{
+                  ...s.categoryChip,
+                  ...(active ? s.categoryChipSelected : {}),
+                  opacity: count === 0 ? 0.45 : 1,
+                }}
+                aria-pressed={active}
+                disabled={count === 0}
+              >
+                <span style={s.categoryLabel}>{label}</span>
+                <span style={s.categoryCount}>{count} items</span>
+              </button>
+            );
+          })}
+        </div>
 
-        <label style={s.label}>
-          Design title (optional)
-          <input
-            style={s.input}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="My summer tee"
-          />
-        </label>
+        <div style={{ ...s.stepRow, marginTop: "28px" }}>
+          <span style={s.stepBadge}>2</span>
+          <h2 style={s.stepTitle}>Product</h2>
+        </div>
+        {!selectedCategory && (
+          <p style={s.stepMuted}>Choose a category above to see products.</p>
+        )}
+        {selectedCategory && productsInCategory.length === 0 && (
+          <p style={s.stepMuted}>No products in this category yet.</p>
+        )}
+        {selectedCategory && productsInCategory.length > 0 && (
+          <div style={s.productGrid}>
+            {productsInCategory.map((p) => {
+              const selected = String(productId) === String(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSelectProduct(p.id)}
+                  style={{
+                    ...s.productCard,
+                    ...(selected ? s.productCardSelected : {}),
+                  }}
+                  aria-pressed={selected}
+                >
+                  <div style={s.productThumbWrap}>
+                    <img
+                      src={getProductImageSrc(p)}
+                      alt=""
+                      style={s.productThumb}
+                    />
+                  </div>
+                  <div style={s.productCardBody}>
+                    <span style={s.productName}>{p.name}</span>
+                    <span style={s.productPrice}>{formatNPR(p.base_price)}</span>
+                  </div>
+                  {selected && <span style={s.selectedTag}>Selected</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {selectedCategory && productId && selectedProduct && (
+          <p style={s.selectionSummary}>
+            Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
+            {formatNPR(selectedProduct.base_price)}
+          </p>
+        )}
+      </section>
+
+      <form onSubmit={handleSaveDesign} style={s.form}>
 
         <label style={s.label}>
           Fabric
@@ -235,29 +485,61 @@ export default function CustomizePage() {
           <legend style={s.legend}>Color segments</legend>
           <div style={s.row}>
             <label style={s.inline}>
-              Body
+            {isPant ? "Front" : isTshirt ? "Color" : "Body"}
               <input
                 type="color"
                 value={bodyColor}
                 onChange={(e) => setBodyColor(e.target.value)}
               />
             </label>
-            <label style={s.inline}>
-              Sleeves
-              <input
-                type="color"
-                value={sleevesColor}
-                onChange={(e) => setSleevesColor(e.target.value)}
-              />
-            </label>
-            <label style={s.inline}>
-              Collar
-              <input
-                type="color"
-                value={collarColor}
-                onChange={(e) => setCollarColor(e.target.value)}
-              />
-            </label>
+            {isPant ? (
+              <label style={s.inline}>
+                Back
+                <input
+                  type="color"
+                  value={backColor}
+                  onChange={(e) => setBackColor(e.target.value)}
+                />
+              </label>
+            ) : isHoodie || isJacket ? (
+              <label style={s.inline}>
+                Sleeves
+                <input
+                  type="color"
+                  value={sleevesColor}
+                  onChange={(e) => setSleevesColor(e.target.value)}
+                />
+              </label>
+            ) : isTshirt ? null : !isSkirt ? (
+              <>
+                <label style={s.inline}>
+                  Sleeves
+                  <input
+                    type="color"
+                    value={sleevesColor}
+                    onChange={(e) => setSleevesColor(e.target.value)}
+                  />
+                </label>
+                <label style={s.inline}>
+                  Collar
+                  <input
+                    type="color"
+                    value={collarColor}
+                    onChange={(e) => setCollarColor(e.target.value)}
+                  />
+                </label>
+              </>
+            ) : null}
+            {isSkirt && (pattern === "check" || pattern === "lines") ? (
+              <label style={s.inline}>
+                Pattern color
+                <input
+                  type="color"
+                  value={patternPrimaryColor}
+                  onChange={(e) => setPatternPrimaryColor(e.target.value)}
+                />
+              </label>
+            ) : null}
           </div>
         </fieldset>
 
@@ -289,70 +571,215 @@ export default function CustomizePage() {
           </label>
         )}
 
-        <label style={s.label}>
-          Pattern
-          <select
-            style={s.input}
-            value={pattern}
-            onChange={(e) => setPattern(e.target.value)}
-          >
-            <option value="plain">Plain</option>
-            <option value="check_line">Check line</option>
-          </select>
-        </label>
-
-        <label style={s.check}>
-          <input
-            type="checkbox"
-            checked={hasCollar}
-            onChange={(e) => setHasCollar(e.target.checked)}
-          />
-          Collar
-        </label>
-
-        <label style={s.label}>
-          Sleeves
-          <select
-            style={s.input}
-            value={sleeveStyle}
-            onChange={(e) => setSleeveStyle(e.target.value)}
-          >
-            <option value="full">Full sleeve</option>
-            <option value="half">Half sleeve</option>
-            <option value="none">No sleeves</option>
-          </select>
-        </label>
-
-        <label style={s.check}>
-          <input
-            type="checkbox"
-            checked={hasPocket}
-            onChange={(e) => setHasPocket(e.target.checked)}
-          />
-          Pocket
-        </label>
-        {hasPocket && (
+        {!isHoodie && !isTshirt && (
           <label style={s.label}>
-            Pocket position
-            <input
+            Pattern
+            <select
               style={s.input}
-              value={pocketPosition}
-              onChange={(e) => setPocketPosition(e.target.value)}
-              placeholder="left_chest"
+              value={pattern}
+              onChange={(e) => setPattern(e.target.value)}
+            >
+              <option value="plain">Plain</option>
+              {isJacket ? (
+                <option value="lines">Lines</option>
+              ) : isPant || isSkirt || isShirt ? (
+                <>
+                  <option value="check">Check</option>
+                  <option value="lines">Lines</option>
+                </>
+              ) : (
+                <option value="check_line">Check line</option>
+              )}
+            </select>
+          </label>
+        )}
+        {(isPant || isShirt || (isJacket && pattern === "lines")) && pattern !== "plain" && (
+          <fieldset style={s.fieldset}>
+            <legend style={s.legend}>Pattern colors</legend>
+            <div style={s.row}>
+              <label style={s.inline}>
+                Primary
+                <input
+                  type="color"
+                  value={patternPrimaryColor}
+                  onChange={(e) => setPatternPrimaryColor(e.target.value)}
+                />
+              </label>
+              <label style={s.inline}>
+                Secondary
+                <input
+                  type="color"
+                  value={patternSecondaryColor}
+                  onChange={(e) => setPatternSecondaryColor(e.target.value)}
+                />
+              </label>
+            </div>
+          </fieldset>
+        )}
+
+        {!isPant && !isSkirt && !isHoodie && !isShirt && (
+          <label style={s.check}>
+            <input
+              type="checkbox"
+              checked={hasCollar}
+              onChange={(e) => setHasCollar(e.target.checked)}
             />
+            Collar
           </label>
         )}
 
-        <label style={s.check}>
-          <input
-            type="checkbox"
-            checked={hasHoodie}
-            onChange={(e) => setHasHoodie(e.target.checked)}
-          />
-          Hoodie
-        </label>
+        {!isPant && !isSkirt && (
+          <label style={s.label}>
+            Sleeves
+            <select
+              style={s.input}
+              value={isJacket && sleeveStyle === "none" ? "full" : sleeveStyle}
+              onChange={(e) => setSleeveStyle(e.target.value)}
+            >
+              <option value="full">Full sleeve</option>
+              <option value="half">Half sleeve</option>
+              {!isJacket && <option value="none">No sleeves</option>}
+            </select>
+          </label>
+        )}
 
-        {isPant && (
+        {isHoodie && (
+          <label style={s.label}>
+            Zipper
+            <select
+              style={s.input}
+              value={hoodieZipper}
+              onChange={(e) => setHoodieZipper(e.target.value)}
+            >
+              <option value="zipper">Zipper</option>
+              <option value="no_zipper">No Zipper</option>
+            </select>
+          </label>
+        )}
+
+        {isPant ? (
+          <fieldset style={s.fieldset}>
+            <legend style={s.legend}>Pocket</legend>
+            <div style={s.row}>
+              {[
+                { value: "front", label: "Front" },
+                { value: "back", label: "Back" },
+                { value: "side", label: "Side" },
+              ].map((opt) => (
+                <label key={opt.value} style={s.check}>
+                  <input
+                    type="checkbox"
+                    checked={pantPockets.includes(opt.value)}
+                    onChange={(e) => {
+                      setPantPockets((prev) =>
+                        e.target.checked
+                          ? [...prev, opt.value]
+                          : prev.filter((v) => v !== opt.value)
+                      );
+                    }}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : isSkirt ? (
+          <label style={s.label}>
+            Pocket
+            <select
+              style={s.input}
+              value={skirtPocket}
+              onChange={(e) => setSkirtPocket(e.target.value)}
+            >
+              <option value="one_side">One side</option>
+              <option value="both_sides">Both sides</option>
+            </select>
+          </label>
+        ) : isHoodie ? (
+          <label style={s.label}>
+            Pocket
+            <select
+              style={s.input}
+              value={hoodiePocket}
+              onChange={(e) => setHoodiePocket(e.target.value)}
+            >
+              <option value="pocket">Pocket</option>
+              <option value="no_pocket">No Pocket</option>
+            </select>
+          </label>
+        ) : isShirt ? (
+          <label style={s.label}>
+            Pocket
+            <select
+              style={s.input}
+              value={shirtPocket}
+              onChange={(e) => setShirtPocket(e.target.value)}
+            >
+              <option value="left_chest">Left Chest</option>
+              <option value="both">Both</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+        ) : isTshirt ? (
+          <label style={s.label}>
+            Pocket
+            <select
+              style={s.input}
+              value={tshirtPocket}
+              onChange={(e) => setTshirtPocket(e.target.value)}
+            >
+              <option value="left_chest">Left Chest</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+        ) : isJacket ? (
+          <label style={s.label}>
+            Pocket
+            <select
+              style={s.input}
+              value={jacketPocket}
+              onChange={(e) => setJacketPocket(e.target.value)}
+            >
+              <option value="both_chest">Both Chest</option>
+              <option value="down_both_side">Down Both Side</option>
+            </select>
+          </label>
+        ) : (
+          <>
+            <label style={s.check}>
+              <input
+                type="checkbox"
+                checked={hasPocket}
+                onChange={(e) => setHasPocket(e.target.checked)}
+              />
+              Pocket
+            </label>
+            {hasPocket && (
+              <label style={s.label}>
+                Pocket position
+                <input
+                  style={s.input}
+                  value={pocketPosition}
+                  onChange={(e) => setPocketPosition(e.target.value)}
+                  placeholder="left_chest"
+                />
+              </label>
+            )}
+          </>
+        )}
+
+        {!isPant && !isSkirt && !isHoodie && !isShirt && !isTshirt && (
+          <label style={s.check}>
+            <input
+              type="checkbox"
+              checked={hasHoodie}
+              onChange={(e) => setHasHoodie(e.target.checked)}
+            />
+            Hoodie
+          </label>
+        )}
+
+        {isPant ? (
           <label style={s.label}>
             Pant length
             <select
@@ -360,27 +787,127 @@ export default function CustomizePage() {
               value={pantLength}
               onChange={(e) => setPantLength(e.target.value)}
             >
-              <option value="half">Half pant</option>
-              <option value="full">Full pant</option>
+              <option value="full">Full</option>
+              <option value="half">Half</option>
+            </select>
+          </label>
+        ) : isSkirt ? (
+          <label style={s.label}>
+            Length
+            <select
+              style={s.input}
+              value={skirtLength}
+              onChange={(e) => setSkirtLength(e.target.value)}
+            >
+              <option value="full">Full</option>
+              <option value="half">Half</option>
+            </select>
+          </label>
+        ) : isHoodie ? (
+          <label style={s.label}>
+            Length
+            <select
+              style={s.input}
+              value={hoodieLength}
+              onChange={(e) => setHoodieLength(e.target.value)}
+            >
+              <option value="full">Full</option>
+              <option value="half">Half</option>
+            </select>
+          </label>
+        ) : isShirt ? (
+          <label style={s.label}>
+            Length
+            <select
+              style={s.input}
+              value={shirtLength}
+              onChange={(e) => setShirtLength(e.target.value)}
+            >
+              <option value="full">Full</option>
+              <option value="half">Half</option>
+            </select>
+          </label>
+        ) : isTshirt ? (
+          <label style={s.label}>
+            Length
+            <select
+              style={s.input}
+              value={tshirtLength}
+              onChange={(e) => setTshirtLength(e.target.value)}
+            >
+              <option value="full">Full</option>
+              <option value="half">Half</option>
+            </select>
+          </label>
+        ) : isJacket ? (
+          <label style={s.label}>
+            Length
+            <select
+              style={s.input}
+              value={jacketLength}
+              onChange={(e) => setJacketLength(e.target.value)}
+            >
+              <option value="full">Full</option>
+              <option value="half">Half</option>
+              <option value="long">Long</option>
+            </select>
+          </label>
+        ) : null}
+
+        {isShirt ? (
+          <label style={s.label}>
+            Neck design
+            <select
+              style={s.input}
+              value={shirtNeckDesign}
+              onChange={(e) => setShirtNeckDesign(e.target.value)}
+            >
+              <option value="v_neck">V Neck</option>
+              <option value="polo">Polo Collar</option>
+            </select>
+          </label>
+        ) : isTshirt ? (
+          <label style={s.label}>
+            Neck design
+            <select
+              style={s.input}
+              value={tshirtNeckDesign}
+              onChange={(e) => setTshirtNeckDesign(e.target.value)}
+            >
+              <option value="v_neck">V Neck</option>
+              <option value="polo">Polo Collar</option>
+              <option value="crew">Crew Neck</option>
+            </select>
+          </label>
+        ) : isJacket ? (
+          <label style={s.label}>
+            Neck design
+            <select
+              style={s.input}
+              value={jacketNeckDesign}
+              onChange={(e) => setJacketNeckDesign(e.target.value)}
+            >
+              <option value="v_neck">V Neck</option>
+              <option value="crew">Crew Neck</option>
+            </select>
+          </label>
+        ) : !isPant && !isSkirt && !isHoodie && (
+          <label style={s.label}>
+            Neck design
+            <select
+              style={s.input}
+              value={neckDesign}
+              onChange={(e) => setNeckDesign(e.target.value)}
+            >
+              <option value="crew">Crew neck</option>
+              <option value="v_neck">V-neck</option>
+              <option value="polo">Polo collar</option>
+              <option value="boat">Boat neck</option>
+              <option value="scoop">Scoop neck</option>
+              <option value="turtleneck">Turtleneck</option>
             </select>
           </label>
         )}
-
-        <label style={s.label}>
-          Neck design
-          <select
-            style={s.input}
-            value={neckDesign}
-            onChange={(e) => setNeckDesign(e.target.value)}
-          >
-            <option value="crew">Crew neck</option>
-            <option value="v_neck">V-neck</option>
-            <option value="polo">Polo collar</option>
-            <option value="boat">Boat neck</option>
-            <option value="scoop">Scoop neck</option>
-            <option value="turtleneck">Turtleneck</option>
-          </select>
-        </label>
 
         <label style={s.label}>
           Notes
@@ -391,7 +918,7 @@ export default function CustomizePage() {
           />
         </label>
 
-        <button type="submit" style={s.primary} disabled={saving}>
+        <button type="submit" style={s.primary} disabled={saving || !productId}>
           {saving ? "Saving…" : "Save design"}
         </button>
         {saveMessage && <p style={s.msg}>{saveMessage}</p>}
@@ -451,6 +978,116 @@ const s = {
   sub: { marginTop: "10px", color: "#555", lineHeight: 1.5 },
   hint: { marginTop: "12px", fontSize: "13px", color: "#777" },
   code: { background: "#f3f4f6", padding: "2px 6px", borderRadius: "4px" },
+  pickSection: {
+    marginBottom: "32px",
+    padding: "20px",
+    background: "#f8f9fb",
+    borderRadius: "12px",
+    border: "1px solid #e8e8ec",
+  },
+  stepRow: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" },
+  stepBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "26px",
+    height: "26px",
+    borderRadius: "50%",
+    background: "#1a1a2e",
+    color: "#fff",
+    fontSize: "13px",
+    fontWeight: "800",
+  },
+  stepTitle: { fontSize: "16px", fontWeight: "800", color: "#1a1a2e", margin: 0 },
+  stepHint: { margin: "0 0 14px 0", fontSize: "13px", color: "#666" },
+  stepMuted: { margin: "0 0 8px 0", fontSize: "14px", color: "#888", fontStyle: "italic" },
+  categoryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+    gap: "10px",
+  },
+  categoryChip: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: "4px",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    border: "1px solid #d1d5db",
+    background: "#fff",
+    cursor: "pointer",
+    textAlign: "left",
+    boxShadow: "none",
+    transition: "border-color 0.15s, box-shadow 0.15s, background 0.15s",
+  },
+  categoryChipSelected: {
+    border: "2px solid #1a1a2e",
+    background: "#eef0f5",
+    boxShadow: "0 0 0 1px #1a1a2e",
+  },
+  categoryLabel: { fontWeight: "700", fontSize: "14px", color: "#1a1a2e" },
+  categoryCount: { fontSize: "12px", color: "#6b7280" },
+  productGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+    gap: "12px",
+  },
+  productCard: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    padding: 0,
+    borderRadius: "10px",
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+    cursor: "pointer",
+    overflow: "hidden",
+    textAlign: "left",
+    boxShadow: "none",
+    transition: "border-color 0.15s, box-shadow 0.15s",
+  },
+  productCardSelected: {
+    border: "2px solid #1a1a2e",
+    boxShadow: "0 4px 14px rgba(26, 26, 46, 0.12)",
+  },
+  productThumbWrap: {
+    height: "120px",
+    background: "#e5e5e5",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  productThumb: { width: "100%", height: "100%", objectFit: "cover" },
+  productCardBody: {
+    padding: "10px 12px 12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  productName: { fontWeight: "700", fontSize: "14px", color: "#1a1a2e", lineHeight: 1.3 },
+  productPrice: { fontSize: "13px", color: "#4b5563" },
+  selectedTag: {
+    position: "absolute",
+    top: "8px",
+    right: "8px",
+    fontSize: "11px",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    color: "#fff",
+    background: "#1a1a2e",
+    padding: "4px 8px",
+    borderRadius: "4px",
+  },
+  selectionSummary: {
+    marginTop: "16px",
+    padding: "12px 14px",
+    background: "#fff",
+    borderRadius: "8px",
+    border: "1px solid #e5e7eb",
+    fontSize: "14px",
+    color: "#374151",
+  },
   form: { display: "flex", flexDirection: "column", gap: "14px" },
   label: { display: "flex", flexDirection: "column", gap: "6px", fontWeight: "600", fontSize: "14px" },
   input: {

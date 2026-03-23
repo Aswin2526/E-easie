@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { formatNPR } from "../currency";
 import heroBanner from "../assets/hero_banner.png";
 import classicLinenShirt from "../assets/classic_linen_shirt.png";
 import summerFloralDress from "../assets/summer_floral_dress.png";
@@ -59,28 +60,28 @@ export default function HomePage() {
                         <img src={classicLinenShirt} alt="Classic Linen Shirt" style={styles.productImage} />
                         <div style={styles.productInfo}>
                             <h4 style={styles.productTitle}>Classic Linen Shirt</h4>
-                            <p style={styles.productPrice}>$50</p>
+                            <p style={styles.productPrice}>{formatNPR(50)}</p>
                         </div>
                     </div>
                     <div style={styles.productCard}>
                         <img src={summerFloralDress} alt="Summer Floral Dress" style={styles.productImage} />
                         <div style={styles.productInfo}>
                             <h4 style={styles.productTitle}>Summer Floral Dress</h4>
-                            <p style={styles.productPrice}>$120</p>
+                            <p style={styles.productPrice}>{formatNPR(120)}</p>
                         </div>
                     </div>
                     <div style={styles.productCard}>
                         <img src={tailoredWoolSuit} alt="Tailored Wool Suit" style={styles.productImage} />
                         <div style={styles.productInfo}>
                             <h4 style={styles.productTitle}>Tailored Wool Suit</h4>
-                            <p style={styles.productPrice}>$280</p>
+                            <p style={styles.productPrice}>{formatNPR(280)}</p>
                         </div>
                     </div>
                     <div style={styles.productCard}>
                         <img src={casualDenimJacket} alt="Casual Denim Jacket" style={styles.productImage} />
                         <div style={styles.productInfo}>
                             <h4 style={styles.productTitle}>Casual Denim Jacket</h4>
-                            <p style={styles.productPrice}>$110</p>
+                            <p style={styles.productPrice}>{formatNPR(110)}</p>
                         </div>
                     </div>
                 </div>
