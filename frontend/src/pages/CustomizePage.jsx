@@ -28,13 +28,17 @@ const SIZES = ["S", "M", "L", "XL", "CUSTOM"];
 export default function CustomizePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const productFromUrl = searchParams.get("product");
+  const primaryFromUrl = searchParams.get("primary");
+  const secondaryFromUrl = searchParams.get("secondary");
+  const categoryFromUrl = searchParams.get("category");
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [productId, setProductId] = useState(productFromUrl || "");
+  const [productId, setProductId] = useState(primaryFromUrl || productFromUrl || "");
+  const [secondaryProductId, setSecondaryProductId] = useState(secondaryFromUrl || "");
   const [fabric, setFabric] = useState("cotton");
   const [bodyColor, setBodyColor] = useState("#2d2d2d");
   const [backColor, setBackColor] = useState("#2d2d2d");
@@ -100,14 +104,18 @@ export default function CustomizePage() {
 
   useEffect(() => {
     if (!products.length) return;
-    if (productFromUrl) {
-      const p = products.find((x) => String(x.id) === String(productFromUrl));
+    const resolvedPrimary = primaryFromUrl || productFromUrl;
+    if (resolvedPrimary) {
+      const p = products.find((x) => String(x.id) === String(resolvedPrimary));
       if (p) {
-        setSelectedCategory(p.product_type);
+        setSelectedCategory(categoryFromUrl || p.product_type);
         setProductId(String(p.id));
       }
+    } else if (categoryFromUrl) {
+      setSelectedCategory(categoryFromUrl);
     }
-  }, [products, productFromUrl]);
+    setSecondaryProductId(secondaryFromUrl || "");
+  }, [products, productFromUrl, primaryFromUrl, secondaryFromUrl, categoryFromUrl]);
 
   const countByType = useMemo(() => {
     const m = {};
@@ -142,9 +150,13 @@ export default function CustomizePage() {
   function handleSelectCategory(type) {
     setSelectedCategory(type);
     setProductId("");
+    setSecondaryProductId("");
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete("product");
+      next.delete("primary");
+      next.delete("secondary");
+      next.set("category", type);
       return next;
     });
   }
@@ -152,7 +164,14 @@ export default function CustomizePage() {
   function handleSelectProduct(id) {
     const sid = String(id);
     setProductId(sid);
-    setSearchParams({ product: sid });
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("product", sid);
+      next.set("primary", sid);
+      if (selectedCategory) next.set("category", selectedCategory);
+      if (secondaryProductId) next.set("secondary", secondaryProductId);
+      return next;
+    });
   }
 
   const selectedProduct = useMemo(

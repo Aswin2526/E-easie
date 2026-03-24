@@ -4,10 +4,20 @@ import { fetchProducts } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
+const CATEGORY_SELECTIONS_KEY = "categorySelections";
+
 export default function CategoryPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectionByType, setSelectionByType] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(CATEGORY_SELECTIONS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +45,39 @@ export default function CategoryPage() {
     }
     return map;
   }, [products]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CATEGORY_SELECTIONS_KEY, JSON.stringify(selectionByType));
+  }, [selectionByType]);
+
+  function computeNextSelection(productType, clickedId) {
+    const sid = String(clickedId);
+    const current = selectionByType[productType] || {};
+    const currentPrimary = String(current.primaryId || "");
+    const currentSecondary = String(current.secondaryId || "");
+
+    if (!currentPrimary) return { primaryId: sid, secondaryId: "" };
+    if (currentPrimary === sid) {
+      return { primaryId: currentPrimary, secondaryId: currentSecondary };
+    }
+    return { primaryId: sid, secondaryId: currentPrimary };
+  }
+
+  function handleCustomizeClick(productType, productId) {
+    const next = computeNextSelection(productType, productId);
+    setSelectionByType((prev) => ({ ...prev, [productType]: next }));
+  }
+
+  function customizeLink(productType, productId) {
+    const next = computeNextSelection(productType, productId);
+    const q = new URLSearchParams({
+      category: productType,
+      product: next.primaryId,
+      primary: next.primaryId,
+    });
+    if (next.secondaryId) q.set("secondary", next.secondaryId);
+    return `/customize?${q.toString()}`;
+  }
 
   if (loading) {
     return (
@@ -80,7 +123,8 @@ export default function CategoryPage() {
                   <h3 style={page.cardTitle}>{p.name}</h3>
                   <p style={page.price}>{formatNPR(p.base_price)}</p>
                   <Link
-                    to={`/customize?product=${p.id}`}
+                    to={customizeLink(p.product_type, p.id)}
+                    onClick={() => handleCustomizeClick(p.product_type, p.id)}
                     style={page.cta}
                   >
                     Customize
