@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  addToCart,
   fetchProducts,
   getStoredToken,
   saveCustomization,
@@ -116,12 +115,8 @@ export default function CustomizePage() {
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
-  const [savedCustomizationId, setSavedCustomizationId] = useState(null);
-
-  const [orderQty, setOrderQty] = useState(1);
   // eslint-disable-next-line no-unused-vars
   const [shippingAddress, setShippingAddress] = useState("");
-  const [ordering, setOrdering] = useState(false);
 
   const isLoggedIn = Boolean(getStoredToken());
   const relatedShowcase = useMemo(
@@ -314,17 +309,6 @@ export default function CustomizePage() {
     () => products.find((p) => String(p.id) === String(productId)),
     [products, productId]
   );
-  const maxOrderQtyForCart = useMemo(() => {
-    const q = getProductStockQty(selectedProduct);
-    if (q === null) return 99;
-    if (q <= 0) return 1;
-    return Math.min(99, q);
-  }, [selectedProduct]);
-
-  useEffect(() => {
-    setOrderQty((prev) => Math.min(prev, maxOrderQtyForCart));
-  }, [maxOrderQtyForCart]);
-
   const relatedCatalogProduct = useMemo(() => {
     if (!relatedShowcase?.catalogSlug) return null;
     return products.find((p) => p.slug === relatedShowcase.catalogSlug) || null;
@@ -586,39 +570,11 @@ export default function CustomizePage() {
     setSaving(true);
     try {
       const created = await saveCustomization(payload);
-      setSavedCustomizationId(created.id);
-      setSaveMessage(`Design saved (ID ${created.id}). You can place an order below.`);
+      setSaveMessage(`Design saved (ID ${created.id}).`);
     } catch (err) {
       setSaveMessage(err.message || "Save failed.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleAddToCartFlow(e) {
-    e.preventDefault();
-    if (!isLoggedIn) {
-      toast.warning("Sign in required", "Please sign in to add your design to the cart.");
-      return;
-    }
-    if (!savedCustomizationId) {
-      toast.warning("Save your design first", "Use “Save design” above, then add your item to the cart.");
-      return;
-    }
-    const payload = {
-      product: Number(productId),
-      customization: savedCustomizationId,
-      quantity: orderQty,
-    };
-    setOrdering(true);
-    try {
-      await addToCart(payload);
-      window.dispatchEvent(new Event("cart-updated"));
-      toast.success({ title: "Added to cart" });
-    } catch (err) {
-      toast.error("Could not add to cart", err.message || "Please try again in a moment.");
-    } finally {
-      setOrdering(false);
     }
   }
 
@@ -1341,28 +1297,6 @@ export default function CustomizePage() {
         </button>
         {saveMessage && <p style={s.msg}>{saveMessage}</p>}
       </form>
-      <section style={s.orderSection}>
-        <form onSubmit={handleAddToCartFlow} style={s.form}>
-          <h2 style={s.stepTitle}>Add to Cart</h2>
-          <div style={s.orderActionRow}>
-            <button
-              type="submit"
-              style={{ ...s.primary, ...s.orderActionBtn }}
-              disabled={ordering || !savedCustomizationId}
-            >
-              {ordering ? "Adding..." : "Add to Cart"}
-            </button>
-            <button
-              type="button"
-              style={{ ...s.secondary, ...s.orderActionBtn }}
-              disabled={!savedCustomizationId}
-              onClick={() => navigate("/cart")}
-            >
-              Proceed to Checkout
-            </button>
-          </div>
-        </form>
-      </section>
             </div>
           </div>
         </div>
@@ -1652,36 +1586,6 @@ const s = {
   },
   form: { display: "flex", flexDirection: "column", gap: "14px" },
   label: { display: "flex", flexDirection: "column", gap: "6px", fontWeight: "600", fontSize: "14px" },
-  orderQtyBlock: { display: "flex", flexDirection: "column", gap: "6px" },
-  orderQtyLabel: { fontWeight: "600", fontSize: "14px" },
-  orderQtyStepper: {
-    display: "inline-flex",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    border: "1px solid #ccc",
-    borderRadius: "8px",
-    overflow: "hidden",
-    background: "#fff",
-  },
-  orderQtyBtn: {
-    width: "40px",
-    height: "40px",
-    border: "none",
-    background: "#f0f2f5",
-    cursor: "pointer",
-    fontSize: "18px",
-    fontWeight: "700",
-    lineHeight: 1,
-    color: "#1a1a2e",
-    padding: 0,
-  },
-  orderQtyNum: {
-    minWidth: "40px",
-    textAlign: "center",
-    fontSize: "16px",
-    fontWeight: "700",
-    color: "#1a1a2e",
-  },
   input: {
     padding: "10px 12px",
     borderRadius: "8px",
@@ -1703,36 +1607,11 @@ const s = {
     fontWeight: "700",
     cursor: "pointer",
   },
-  secondary: {
-    marginTop: "8px",
-    padding: "12px 20px",
-    background: "#fff",
-    color: "#1a1a2e",
-    border: "2px solid #1a1a2e",
-    borderRadius: "8px",
-    fontWeight: "700",
-    cursor: "pointer",
-  },
-  orderActionRow: {
-    display: "flex",
-    gap: "12px",
-    flexWrap: "wrap",
-  },
-  orderActionBtn: {
-    flex: "1 1 220px",
-    marginTop: 0,
-    textAlign: "center",
-  },
   msg: { marginTop: "8px", color: "#374151", fontSize: "14px" },
   fabricMarkupHint: {
     margin: "-4px 0 12px 0",
     fontSize: "13px",
     color: "#92400e",
     lineHeight: 1.45,
-  },
-  orderSection: {
-    marginTop: "24px",
-    paddingTop: "24px",
-    borderTop: "1px solid #e8e8ec",
   },
 };
