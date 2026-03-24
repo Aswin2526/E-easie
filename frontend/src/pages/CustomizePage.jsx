@@ -1344,17 +1344,23 @@ export default function CustomizePage() {
       <section style={s.orderSection}>
         <form onSubmit={handleAddToCartFlow} style={s.form}>
           <h2 style={s.stepTitle}>Add to Cart</h2>
-          <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
-            {ordering ? "Adding..." : "Add to Cart"}
-          </button>
-          <button
-            type="button"
-            style={s.secondary}
-            disabled={!savedCustomizationId}
-            onClick={() => navigate("/cart")}
-          >
-            Proceed to Checkout
-          </button>
+          <div style={s.orderActionRow}>
+            <button
+              type="submit"
+              style={{ ...s.primary, ...s.orderActionBtn }}
+              disabled={ordering || !savedCustomizationId}
+            >
+              {ordering ? "Adding..." : "Add to Cart"}
+            </button>
+            <button
+              type="button"
+              style={{ ...s.secondary, ...s.orderActionBtn }}
+              disabled={!savedCustomizationId}
+              onClick={() => navigate("/cart")}
+            >
+              Proceed to Checkout
+            </button>
+          </div>
         </form>
       </section>
             </div>
@@ -1706,6 +1712,16 @@ const s = {
     borderRadius: "8px",
     fontWeight: "700",
     cursor: "pointer",
+  },
+  orderActionRow: {
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap",
+  },
+  orderActionBtn: {
+    flex: "1 1 220px",
+    marginTop: 0,
+    textAlign: "center",
   },
   msg: { marginTop: "8px", color: "#374151", fontSize: "14px" },
   fabricMarkupHint: {
