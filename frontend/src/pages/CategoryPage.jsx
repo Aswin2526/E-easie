@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { fetchProducts } from "../api";
+import { Link, useSearchParams } from "react-router-dom";
+import { fetchProducts, addToCart, addToWishlist, getStoredToken } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
 const CATEGORY_SELECTIONS_KEY = "categorySelections";
 
 export default function CategoryPage() {
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,14 +38,19 @@ export default function CategoryPage() {
   }, []);
 
   const byType = useMemo(() => {
+    const q = (searchParams.get("q") || "").trim().toLowerCase();
     const map = {};
     for (const p of products) {
+      if (q) {
+        const haystack = `${p.name || ""} ${p.product_type_display || p.product_type || ""}`.toLowerCase();
+        if (!haystack.includes(q)) continue;
+      }
       const key = p.product_type_display || p.product_type || "Other";
       if (!map[key]) map[key] = [];
       map[key].push(p);
     }
     return map;
-  }, [products]);
+  }, [products, searchParams]);
 
   useEffect(() => {
     window.localStorage.setItem(CATEGORY_SELECTIONS_KEY, JSON.stringify(selectionByType));
@@ -79,6 +85,35 @@ export default function CategoryPage() {
     return `/customize?${q.toString()}`;
   }
 
+  async function handleAddToCart(p, e) {
+    e.preventDefault();
+    if (!getStoredToken()) {
+      alert("Please sign in to add to cart.");
+      return;
+    }
+    try {
+      await addToCart({ product: p.id, quantity: 1 });
+      alert(`${p.name} added to cart!`);
+      // Update cart count event or let the page reload / rely on next nav
+    } catch (err) {
+      alert(err.message || "Failed to add to cart");
+    }
+  }
+
+  async function handleWishlist(p, e) {
+    e.preventDefault();
+    if (!getStoredToken()) {
+      alert("Please sign in to add to wishlist.");
+      return;
+    }
+    try {
+      await addToWishlist(p.id);
+      alert(`${p.name} added to wishlist!`);
+    } catch (err) {
+      alert(err.message || "Failed to add to wishlist (might be already added).");
+    }
+  }
+
   if (loading) {
     return (
       <div style={page.centered}>
@@ -104,7 +139,16 @@ export default function CategoryPage() {
         <p style={page.sub}>
           Pick a base garment, then customize fabric, colors, and details.
         </p>
+        {(searchParams.get("q") || "").trim() ? (
+          <p style={page.searchInfo}>
+            Showing results for: <strong>{searchParams.get("q")}</strong>
+          </p>
+        ) : null}
       </header>
+
+      {Object.entries(byType).length === 0 ? (
+        <p style={page.emptyText}>No products match your search.</p>
+      ) : null}
 
       {Object.entries(byType).map(([typeName, items]) => (
         <section key={typeName} style={page.section}>
@@ -129,6 +173,14 @@ export default function CategoryPage() {
                   >
                     Customize
                   </Link>
+                  <div style={page.actions}>
+                    <button style={page.iconBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
+                      🛒 Add
+                    </button>
+                    <button style={page.iconBtnOutline} onClick={(e) => handleWishlist(p, e)} title="Add to Wishlist">
+                      ❤️ Wishlist
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
@@ -145,6 +197,8 @@ const page = {
   header: { marginBottom: "32px" },
   title: { fontSize: "28px", fontWeight: "800", color: "#1a1a2e" },
   sub: { marginTop: "10px", color: "#555", maxWidth: "560px" },
+  searchInfo: { marginTop: "8px", color: "#1a1a2e", fontSize: "14px" },
+  emptyText: { marginTop: "20px", color: "#666", fontSize: "15px" },
   section: { marginBottom: "48px" },
   typeHeading: {
     fontSize: "18px",
@@ -177,7 +231,8 @@ const page = {
   cardTitle: { fontSize: "16px", fontWeight: "700", marginBottom: "6px" },
   price: { color: "#444", marginBottom: "12px" },
   cta: {
-    display: "inline-block",
+    display: "block",
+    textAlign: "center",
     padding: "10px 16px",
     background: "#1a1a2e",
     color: "#fff",
@@ -185,5 +240,9 @@ const page = {
     textDecoration: "none",
     fontWeight: "600",
     fontSize: "14px",
+    marginBottom: "10px"
   },
+  actions: { display: "flex", gap: "8px" },
+  iconBtn: { flex: 1, padding: "8px", background: "#f0f2f5", border: "1px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" },
+  iconBtnOutline: { flex: 1, padding: "8px", background: "transparent", border: "1px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" }
 };

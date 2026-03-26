@@ -87,6 +87,15 @@ export default function TrackOrderPage() {
   );
 }
 
+function Row({ label, value }) {
+  return (
+    <div style={s.row}>
+      <span style={s.rowLabel}>{label}</span>
+      <span style={s.rowValue}>{value || "-"}</span>
+    </div>
+  );
+}
+
 const s = {
   wrap: { padding: "40px", maxWidth: "560px", margin: "0 auto", paddingBottom: "80px" },
   header: { marginBottom: "24px" },

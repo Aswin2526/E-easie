@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Customization, Order, Product
+from .models import Customization, Order, Product, Wishlist, Cart, CartItem
 
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 PRESET_SIZES = {"S", "M", "L", "XL", "CUSTOM"}
@@ -199,3 +199,34 @@ class OrderListSerializer(serializers.ModelSerializer):
 
     def get_customization_summary(self, obj):
         return str(obj.customization)
+
+class WishlistSerializer(serializers.ModelSerializer):
+    product_detail = ProductSerializer(source="product", read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ("id", "user", "product", "product_detail", "added_at")
+        read_only_fields = ("id", "user", "added_at")
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            validated_data["user"] = request.user
+        return super().create(validated_data)
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product_detail = ProductSerializer(source="product", read_only=True)
+    customization_detail = CustomizationSerializer(source="customization", read_only=True)
+
+    class Meta:
+        model = CartItem
+        fields = ("id", "cart", "product", "product_detail", "customization", "customization_detail", "quantity", "added_at")
+        read_only_fields = ("id", "cart", "added_at")
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Cart
+        fields = ("id", "user", "session_key", "items", "created_at", "updated_at")
+        read_only_fields = ("id", "user", "session_key", "created_at", "updated_at")

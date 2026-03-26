@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework.authtoken",
     "users",
     "corsheaders",
     "shop",
@@ -152,6 +153,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
         "shop.authentication.SessionAuthenticationWithoutCsrf",
         "rest_framework.authentication.BasicAuthentication",
     ],

@@ -1,13 +1,42 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatNPR } from "../currency";
 import heroBanner from "../assets/hero_banner.png";
-import classicLinenShirt from "../assets/classic_linen_shirt.png";
-import summerFloralDress from "../assets/summer_floral_dress.png";
-import tailoredWoolSuit from "../assets/tailored_wool_suit.png";
-import casualDenimJacket from "../assets/casual_denim_jacket.png";
+import trendingGreenOffShoulderTop from "../assets/trending_green_off_shoulder_top.png";
+import trendingBlackFloralMaxiSkirt from "../assets/trending_black_floral_maxi_skirt.png";
+import trendingOliveLongCoat from "../assets/trending_olive_long_coat.png";
+import trendingGreenJoggerPants from "../assets/trending_green_jogger_pants.png";
+import trendingGreyDrawstringPants from "../assets/trending_grey_drawstring_pants.png";
+import trendingSkyBlueButtonTop from "../assets/trending_sky_blue_button_top.png";
+import trendingPuffSleeveBlueTop from "../assets/trending_puff_sleeve_blue_top.png";
+import trendingBerryZipKnit from "../assets/trending_berry_zip_knit.png";
+import trendingMaroonFloralCardigan from "../assets/trending_maroon_floral_cardigan.png";
+import trendingTaupeWrapSkirt from "../assets/trending_taupe_wrap_skirt.png";
 
 export default function HomePage() {
+    const [showAllTrending, setShowAllTrending] = useState(false);
+    const baseTrending = useMemo(
+        () => [
+            { img: trendingGreenOffShoulderTop, alt: "Green Off Shoulder Top", title: "Green Off-Shoulder Top", price: 2199 },
+            { img: trendingBlackFloralMaxiSkirt, alt: "Black Floral Maxi Skirt", title: "Floral Maxi Skirt", price: 2899 },
+            { img: trendingOliveLongCoat, alt: "Olive Long Coat", title: "Olive Long Coat", price: 6499 },
+            { img: trendingGreenJoggerPants, alt: "Green Jogger Pants", title: "Green Jogger Pants", price: 2399 },
+        ],
+        []
+    );
+    const moreTrending = useMemo(
+        () => [
+            { img: trendingGreyDrawstringPants, alt: "Grey Drawstring Pants", title: "Grey Drawstring Pants", price: 2599 },
+            { img: trendingSkyBlueButtonTop, alt: "Sky Blue Button Top", title: "Sky Blue Button Top", price: 2299 },
+            { img: trendingPuffSleeveBlueTop, alt: "Blue Puff Sleeve Top", title: "Blue Puff Sleeve Top", price: 2499 },
+            { img: trendingBerryZipKnit, alt: "Berry Zip Knit Top", title: "Berry Zip Knit Top", price: 2799 },
+            { img: trendingMaroonFloralCardigan, alt: "Maroon Floral Cardigan", title: "Maroon Floral Cardigan", price: 3199 },
+            { img: trendingTaupeWrapSkirt, alt: "Taupe Wrap Skirt", title: "Taupe Wrap Skirt", price: 2699 },
+        ],
+        []
+    );
+    const trendingItems = showAllTrending ? [...baseTrending, ...moreTrending] : baseTrending;
+
     return (
         <div style={styles.container}>
             {/* Hero Section */}
@@ -52,38 +81,27 @@ export default function HomePage() {
             <section style={styles.trendingSection}>
                 <div style={styles.trendingHeader}>
                     <h2 style={styles.sectionTitle}>Trending Styles</h2>
-                    <a href="#" style={styles.viewAllLink}>View all</a>
+                    {!showAllTrending && (
+                        <button
+                            type="button"
+                            style={styles.viewAllLink}
+                            onClick={() => setShowAllTrending(true)}
+                        >
+                            View all
+                        </button>
+                    )}
                 </div>
 
                 <div style={styles.trendingGrid}>
-                    <div style={styles.productCard}>
-                        <img src={classicLinenShirt} alt="Classic Linen Shirt" style={styles.productImage} />
-                        <div style={styles.productInfo}>
-                            <h4 style={styles.productTitle}>Classic Linen Shirt</h4>
-                            <p style={styles.productPrice}>{formatNPR(50)}</p>
+                    {trendingItems.map((item) => (
+                        <div style={styles.productCard} key={item.title}>
+                            <img src={item.img} alt={item.alt} style={styles.productImage} />
+                            <div style={styles.productInfo}>
+                                <h4 style={styles.productTitle}>{item.title}</h4>
+                                <p style={styles.productPrice}>{formatNPR(item.price)}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div style={styles.productCard}>
-                        <img src={summerFloralDress} alt="Summer Floral Dress" style={styles.productImage} />
-                        <div style={styles.productInfo}>
-                            <h4 style={styles.productTitle}>Summer Floral Dress</h4>
-                            <p style={styles.productPrice}>{formatNPR(120)}</p>
-                        </div>
-                    </div>
-                    <div style={styles.productCard}>
-                        <img src={tailoredWoolSuit} alt="Tailored Wool Suit" style={styles.productImage} />
-                        <div style={styles.productInfo}>
-                            <h4 style={styles.productTitle}>Tailored Wool Suit</h4>
-                            <p style={styles.productPrice}>{formatNPR(280)}</p>
-                        </div>
-                    </div>
-                    <div style={styles.productCard}>
-                        <img src={casualDenimJacket} alt="Casual Denim Jacket" style={styles.productImage} />
-                        <div style={styles.productInfo}>
-                            <h4 style={styles.productTitle}>Casual Denim Jacket</h4>
-                            <p style={styles.productPrice}>{formatNPR(110)}</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </section>
 
@@ -91,10 +109,6 @@ export default function HomePage() {
             <section style={styles.footerCTA}>
                 <h2 style={styles.ctaTitle}>Ready to Create Your Masterpiece?</h2>
                 <p style={styles.ctaText}>Join thousands of satisfied customers who have discovered the joy of perfectly fitted, custom-designed clothing.</p>
-                <div style={styles.newsletter}>
-                    <input type="email" placeholder="Enter your email address" style={styles.newsletterInput} />
-                    <button style={styles.subscribeButton}>Subscribe</button>
-                </div>
             </section>
 
             {/* Footer Links */}
@@ -127,10 +141,6 @@ export default function HomePage() {
                     <div>
                         <h4 style={styles.footerHeading}>Newsletter</h4>
                         <p style={styles.footerText}>Subscribe for latest trends and offers.</p>
-                        <div style={styles.footerInputGroup}>
-                            <input type="email" placeholder="Enter your email" style={styles.smallInput} />
-                            <button style={styles.smallButton}>Subscribe</button>
-                        </div>
                     </div>
                 </div>
                 <p style={styles.copyright}>© 2024 e-easie. All rights reserved.</p>
@@ -254,9 +264,12 @@ const styles = {
         marginBottom: "30px",
     },
     viewAllLink: {
+        background: "transparent",
+        border: "none",
         textDecoration: "underline",
         color: "#333",
         fontSize: "14px",
+        cursor: "pointer",
     },
     trendingGrid: {
         display: "grid",
@@ -304,26 +317,6 @@ const styles = {
         marginLeft: "auto",
         marginRight: "auto",
     },
-    newsletter: {
-        display: "flex",
-        justifyContent: "center",
-        gap: "10px",
-    },
-    newsletterInput: {
-        padding: "10px 15px",
-        borderRadius: "4px",
-        border: "none",
-        width: "300px",
-    },
-    subscribeButton: {
-        padding: "10px 20px",
-        background: "#fff",
-        color: "#000",
-        border: "none",
-        borderRadius: "4px",
-        cursor: "pointer",
-        fontWeight: "bold",
-    },
     footer: {
         padding: "60px 40px 20px",
         background: "#fff",
@@ -361,25 +354,6 @@ const styles = {
         listStyle: "none",
         padding: 0,
         lineHeight: "2",
-    },
-    footerInputGroup: {
-        display: "flex",
-        marginTop: "10px",
-        gap: "5px"
-    },
-    smallInput: {
-        padding: "5px",
-        border: "1px solid #ddd",
-        borderRadius: "4px"
-    },
-    smallButton: {
-        padding: "5px 10px",
-        background: "#000",
-        color: "#fff",
-        border: "none",
-        borderRadius: "4px",
-        cursor: "pointer",
-        fontSize: "10px"
     },
     footerText: {
         maxWidth: "200px",

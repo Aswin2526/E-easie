@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loginUser } from "../api";
+import { loginUser, persistAuth } from "../api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,12 +18,13 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await loginUser(email, password);
-      navigate("/");
+      const res = await loginUser(email, password);
+      persistAuth({ token: res?.token, role: res?.role, name: res?.user?.name });
+      navigate(res?.role === "admin" ? "/admin/dashboard" : "/");
     } catch (err) {
       setError(
-        typeof err.data === "object" && err.data?.detail
-          ? String(err.data.detail)
+        typeof err.data === "object" && (err.data?.detail || err.data?.error)
+          ? String(err.data.detail || err.data.error)
           : err.message || "Login failed."
       );
     } finally {
@@ -34,7 +35,7 @@ export default function LoginPage() {
   return (
     <div style={styles.container}>
       <form onSubmit={handleSubmit} style={styles.card}>
-        <h2>Login to E-Easie</h2>
+        <h2 style={styles.title}>Sign In</h2>
 
         <input
           type="email"
@@ -78,31 +79,41 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "#f2f2f2",
+    background: "linear-gradient(180deg, #eef1ff 0%, #f6f7fb 100%)",
   },
   card: {
-    background: "#fff",
-    padding: "30px",
-    width: "320px",
-    borderRadius: "8px",
-    boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-    textAlign: "center",
+    background: "#ffffff",
+    padding: "32px",
+    width: "360px",
+    borderRadius: "16px",
+    boxShadow: "0 14px 34px rgba(26, 26, 46, 0.14)",
+    border: "1px solid #e7e9f3",
+  },
+  title: {
+    marginTop: "0",
+    marginBottom: "12px",
+    color: "#1a1a2e",
+    fontWeight: 800,
   },
   input: {
     width: "100%",
-    padding: "10px",
+    padding: "12px 14px",
     margin: "10px 0",
     boxSizing: "border-box",
+    borderRadius: "10px",
+    border: "1px solid #ccd2ea",
+    outline: "none",
   },
   button: {
     width: "100%",
-    padding: "10px",
-    background: "#2563eb",
+    padding: "12px",
+    background: "#1a1a2e",
     color: "#fff",
     border: "none",
     cursor: "pointer",
-    borderRadius: "6px",
-    fontWeight: "600",
+    borderRadius: "10px",
+    fontWeight: 800,
+    letterSpacing: "0.02em",
   },
   error: { color: "#b91c1c", fontSize: "14px", marginTop: "8px" },
   back: { marginTop: "12px", fontSize: "14px" },

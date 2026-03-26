@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchProducts, placeOrder, saveCustomization } from "../api";
+import { fetchProducts, placeOrder, saveCustomization, addToCart } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
@@ -266,7 +266,7 @@ export default function CustomizePage() {
       custom_size: customSize.trim(),
       pattern: isHoodie || isTshirt ? "plain" : patternForPayload,
       has_collar: !isPant && !isSkirt && !isHoodie && !isShirt ? hasCollar : false,
-      sleeve_style: !isPant && !isSkirt ? sleeveStyle : "",
+      sleeve_style: sleeveStyle || "full",
       has_pocket: isPant
         ? pantPockets.length > 0
         : isSkirt
@@ -344,31 +344,24 @@ export default function CustomizePage() {
     }
   }
 
-  async function handlePlaceOrder(e) {
+  async function handleAddToCartFlow(e) {
     e.preventDefault();
     setOrderMessage(null);
     if (!savedCustomizationId) {
       setOrderMessage("Save your design first.");
       return;
     }
-    if (!shippingAddress.trim()) {
-      setOrderMessage("Shipping address is required.");
-      return;
-    }
     const payload = {
+      product: Number(productId),
       customization: savedCustomizationId,
       quantity: orderQty,
-      shipping_address: shippingAddress.trim(),
-      guest_email: guestEmail.trim(),
     };
     setOrdering(true);
     try {
-      const order = await placeOrder(payload);
-      setOrderMessage(
-        `Order placed successfully. Order #${order.id} — track it from TRACK ORDER.`
-      );
+      await addToCart(payload);
+      setOrderMessage("Successfully added to cart!");
     } catch (err) {
-      setOrderMessage(err.message || "Order failed.");
+      setOrderMessage(err.message || "Failed to add to cart.");
     } finally {
       setOrdering(false);
     }
@@ -482,6 +475,8 @@ export default function CustomizePage() {
           </p>
         )}
       </section>
+
+
 
       <form onSubmit={handleSaveDesign} style={s.form}>
 
@@ -949,7 +944,12 @@ export default function CustomizePage() {
           After saving, submit shipping details. Guests must use the same email as
           checkout for tracking.
         </p>
-        <form onSubmit={handlePlaceOrder} style={s.form}>
+        <form onSubmit={handleAddToCartFlow} style={s.form}>
+          <hr style={{ margin: "24px 0", border: "0", borderTop: "1px solid #ddd" }} />
+          <h2 style={s.stepTitle}>Add to Cart</h2>
+          <p style={s.stepHint}>
+            Satisfied with your design? Save it first, then add to your shopping cart.
+          </p>
           <label style={s.label}>
             Quantity
             <input
@@ -960,27 +960,8 @@ export default function CustomizePage() {
               onChange={(e) => setOrderQty(Number(e.target.value) || 1)}
             />
           </label>
-          <label style={s.label}>
-            Shipping address
-            <textarea
-              style={{ ...s.input, minHeight: "72px" }}
-              value={shippingAddress}
-              onChange={(e) => setShippingAddress(e.target.value)}
-              required
-            />
-          </label>
-          <label style={s.label}>
-            Guest email (required if not signed in)
-            <input
-              type="email"
-              style={s.input}
-              value={guestEmail}
-              onChange={(e) => setGuestEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-          </label>
-          <button type="submit" style={s.secondary} disabled={ordering}>
-            {ordering ? "Placing…" : "Place order"}
+          <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
+            {ordering ? "Adding..." : "Add to Cart"}
           </button>
           {orderMessage && <p style={s.msg}>{orderMessage}</p>}
         </form>

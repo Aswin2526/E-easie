@@ -170,3 +170,39 @@ class Order(models.Model):
 
     def __str__(self) -> str:
         return f"Order #{self.pk} ({self.status})"
+
+class Wishlist(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wishlist")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="wishlisted_by")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "product")
+        ordering = ["-added_at"]
+
+    def __str__(self):
+        return f"{self.user}'s wishlist item: {self.product.name}"
+
+class Cart(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart", null=True, blank=True)
+    session_key = models.CharField(max_length=40, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        if self.user:
+            return f"Cart for {self.user}"
+        return f"Cart (session: {self.session_key})"
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    customization = models.ForeignKey(Customization, on_delete=models.SET_NULL, null=True, blank=True)
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-added_at"]
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} in {self.cart}"

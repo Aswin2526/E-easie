@@ -3,12 +3,15 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Customization, Order, Product
+from .models import Customization, Order, Product, Wishlist, Cart, CartItem
 from .serializers import (
     CustomizationSerializer,
     OrderCreateSerializer,
     OrderListSerializer,
     ProductSerializer,
+    WishlistSerializer,
+    CartSerializer,
+    CartItemSerializer,
 )
 
 
@@ -102,3 +105,54 @@ class OrderViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(OrderListSerializer(order, context={"request": request}).data)
+
+class WishlistViewSet(viewsets.ModelViewSet):
+    """Manage user wishlist."""
+    serializer_class = WishlistSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Wishlist.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        # Ensure we don't create duplicates
+        product = serializer.validated_data['product']
+        if not Wishlist.objects.filter(user=self.request.user, product=product).exists():
+            serializer.save(user=self.request.user)
+
+class CartViewSet(viewsets.ViewSet):
+    """Retrieve the current user's cart."""
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["get"])
+    def current(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        return Response(CartSerializer(cart, context={"request": request}).data)
+
+    @action(detail=False, methods=["post"])
+    def clear(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart.items.all().delete()
+        return Response({"status": "cart cleared"})
+
+class CartItemViewSet(viewsets.ModelViewSet):
+    """Manage items inside the current user's cart."""
+    serializer_class = CartItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        return CartItem.objects.filter(cart=cart)
+
+    def perform_create(self, serializer):
+        cart, _ = Cart.objects.get_or_create(user=self.request.user)
+        # Check if identical item already exists to increment quantity
+        product = serializer.validated_data.get('product')
+        customization = serializer.validated_data.get('customization')
+        existing_item = CartItem.objects.filter(cart=cart, product=product, customization=customization).first()
+        
+        if existing_item:
+            existing_item.quantity += serializer.validated_data.get('quantity', 1)
+            existing_item.save()
+        else:
+            serializer.save(cart=cart)

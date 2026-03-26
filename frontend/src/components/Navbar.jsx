@@ -1,5 +1,6 @@
-import React from "react";
-import { Link, NavLink } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { clearAuth, getStoredName, getStoredRole, getStoredToken, fetchCart } from "../api";
 
 const linkStyle = ({ isActive }) => ({
   textDecoration: "none",
@@ -12,6 +13,35 @@ const linkStyle = ({ isActive }) => ({
 });
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const token = getStoredToken();
+  const role = getStoredRole();
+  const storedName = getStoredName();
+  const displayName = (storedName || "User").trim();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [cartCount, setCartCount] = useState(0);
+
+  React.useEffect(() => {
+    if (token) {
+      fetchCart()
+        .then(cart => setCartCount(cart?.items?.length || 0))
+        .catch(() => setCartCount(0));
+    } else {
+      setCartCount(0);
+    }
+  }, [token]);
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate("/login");
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const term = searchTerm.trim();
+    navigate(term ? `/category?q=${encodeURIComponent(term)}` : "/category");
+  };
+
   return (
     <nav style={styles.navbar}>
       <div style={styles.navLeft}>
@@ -36,16 +66,75 @@ export default function Navbar() {
         </NavLink>
       </div>
       <div style={styles.navRight}>
-        <span style={styles.icon} aria-hidden>
-          🔍
-        </span>
-        <span style={styles.icon} aria-hidden>
-          🛒
-          <span style={styles.badge}>0</span>
-        </span>
-        <Link to="/login" style={styles.authLink}>
-          👤 Sign In
-        </Link>
+        <form onSubmit={handleSearchSubmit} style={styles.searchForm}>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search products"
+            style={styles.searchInput}
+          />
+          <button type="submit" style={styles.iconBtn} aria-label="Search products">
+            <svg viewBox="0 0 24 24" style={styles.svgIcon} aria-hidden>
+              <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+              <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </form>
+        <button
+          type="button"
+          onClick={() => navigate("/wishlist")}
+          style={styles.iconBtn}
+          aria-label="Wishlist"
+          title="Wishlist"
+        >
+          <svg viewBox="0 0 24 24" style={styles.svgIcon} aria-hidden stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("/cart")}
+          style={styles.iconBtn}
+          aria-label="Open Cart"
+          title="Cart"
+        >
+          <svg viewBox="0 0 24 24" style={styles.svgIcon} aria-hidden>
+            <circle cx="9" cy="19" r="1.8" fill="currentColor" />
+            <circle cx="17" cy="19" r="1.8" fill="currentColor" />
+            <path
+              d="M3 4h2l2.4 10.2a1 1 0 0 0 .97.78H18a1 1 0 0 0 .96-.72L21 8H7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {cartCount > 0 && <span style={styles.badge}>{cartCount}</span>}
+        </button>
+        {token ? (
+          <>
+            <span style={styles.rolePill}>{`Hi, ${displayName}`}</span>
+            {role === "admin" ? (
+              <NavLink to="/admin/dashboard" style={styles.authLink}>
+                Dashboard
+              </NavLink>
+            ) : null}
+            <button type="button" onClick={handleLogout} style={styles.logoutBtn}>
+              Log out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" style={styles.authLink}>
+              👤 Sign In
+            </Link>
+            <Link to="/register" style={styles.authLink}>
+              Register
+            </Link>
+          </>
+        )}
       </div>
     </nav>
   );
@@ -83,22 +172,72 @@ const styles = {
   navRight: {
     display: "flex",
     alignItems: "center",
-    gap: "20px",
+    gap: "12px",
   },
-  icon: { fontSize: "18px", cursor: "pointer" },
+  searchForm: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  searchInput: {
+    width: "170px",
+    border: "1px solid #cfd6ea",
+    borderRadius: "8px",
+    padding: "8px 10px",
+    fontSize: "13px",
+    outline: "none",
+  },
+  iconBtn: {
+    width: "34px",
+    height: "34px",
+    borderRadius: "8px",
+    border: "1px solid #d6dced",
+    background: "#f7f9ff",
+    color: "#1a1a2e",
+    display: "grid",
+    placeItems: "center",
+    cursor: "pointer",
+    position: "relative",
+  },
+  svgIcon: {
+    width: "18px",
+    height: "18px",
+  },
   badge: {
     fontSize: "10px",
     background: "#000",
     color: "#fff",
     borderRadius: "50%",
-    padding: "2px 5px",
-    verticalAlign: "top",
-    marginLeft: "-5px",
+    width: "16px",
+    height: "16px",
+    display: "grid",
+    placeItems: "center",
+    position: "absolute",
+    top: "-5px",
+    right: "-5px",
   },
   authLink: {
     textDecoration: "none",
     color: "#1a1a2e",
     fontSize: "14px",
     fontWeight: "600",
+  },
+  rolePill: {
+    background: "#d8ecff",
+    color: "#123a69",
+    borderRadius: "999px",
+    padding: "8px 12px",
+    fontSize: "12px",
+    fontWeight: 700,
+    border: "1px solid #b7d9fb",
+  },
+  logoutBtn: {
+    border: "1px solid #b7d9fb",
+    background: "#d8ecff",
+    color: "#123a69",
+    borderRadius: "8px",
+    padding: "8px 12px",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 };
