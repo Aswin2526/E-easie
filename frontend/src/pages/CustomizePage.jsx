@@ -1343,7 +1343,6 @@ export default function CustomizePage() {
       </form>
       <section style={s.orderSection}>
         <form onSubmit={handleAddToCartFlow} style={s.form}>
-          <h2 style={s.stepTitle}>Add to Cart</h2>
           <div style={s.orderActionRow}>
             <button
               type="submit"
