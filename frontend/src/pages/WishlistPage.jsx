@@ -18,7 +18,9 @@ export default function WishlistPage() {
     setLoading(true);
     try {
       const data = await fetchWishlist();
-      setItems(Array.isArray(data) ? data : data.results || []);
+      const nextItems = Array.isArray(data) ? data : data.results || [];
+      setItems(nextItems);
+      window.dispatchEvent(new Event("wishlist-updated"));
     } catch (err) {
       setError(err.message || "Failed to load wishlist");
     } finally {
@@ -30,7 +32,11 @@ export default function WishlistPage() {
     if (!window.confirm("Remove this item from your wishlist?")) return;
     try {
       await removeFromWishlist(id);
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      setItems((prev) => {
+        const next = prev.filter((item) => item.id !== id);
+        window.dispatchEvent(new Event("wishlist-updated"));
+        return next;
+      });
     } catch (err) {
       alert(err.message || "Failed to remove item.");
     }
@@ -39,6 +45,7 @@ export default function WishlistPage() {
   async function handleAddToCart(product) {
     try {
       await addToCart({ product: product.id, quantity: 1 });
+      window.dispatchEvent(new Event("cart-updated"));
       alert("Added to cart!");
     } catch (err) {
       alert(err.message || "Failed to add to cart.");

@@ -74,9 +74,16 @@ export function placeOrder(payload) {
 }
 
 export function trackOrder(orderId, email) {
-  const q = new URLSearchParams({ id: String(orderId) });
+  const q = new URLSearchParams({ order_number: String(orderId) });
   if (email) q.set("email", email);
-  return apiFetch(`/api/orders/track/?${q.toString()}`);
+  return apiFetch(`/api/track-order?${q.toString()}`);
+}
+
+export function fetchTrackedOrders(email) {
+  const q = new URLSearchParams();
+  if (email) q.set("email", email);
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  return apiFetch(`/api/track-order${suffix}`);
 }
 
 export function loginUser(email, password) {

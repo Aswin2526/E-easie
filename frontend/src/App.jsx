@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
+import AuthLayout from "./components/AuthLayout";
 import RequireAdmin from "./components/RequireAdmin";
 import RequireAuth from "./components/RequireAuth";
 import HomePage from "./pages/HomePage";
@@ -20,9 +21,9 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/category" element={<CategoryPage />} />
+          <Route path="/track-order" element={<TrackOrderPage />} />
           <Route element={<RequireAuth />}>
             <Route path="/customize" element={<CustomizePage />} />
-            <Route path="/track-order" element={<TrackOrderPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
           </Route>
@@ -30,8 +31,10 @@ export default function App() {
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           </Route>
         </Route>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );

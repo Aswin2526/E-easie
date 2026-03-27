@@ -1,6 +1,18 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loginUser, persistAuth } from "../api";
+import {
+  AuthField,
+  AuthGlobalStyles,
+  IconEnvelope,
+  IconLock,
+  authButtonStyle,
+  authCardStyle,
+  authErrorStyle,
+  authFooterStyle,
+  authInputProps,
+  authPageStyle,
+} from "../auth/AuthUi";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -8,6 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const inputProps = authInputProps();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,88 +46,44 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.card}>
-        <h2 style={styles.title}>Sign In</h2>
+    <div style={authPageStyle()}>
+      <AuthGlobalStyles />
+      <form onSubmit={handleSubmit} style={authCardStyle()}>
+        <AuthField icon={<IconEnvelope />}>
+          <input
+            type="email"
+            placeholder="Email ID"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            {...inputProps}
+            autoComplete="username"
+          />
+        </AuthField>
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={styles.input}
-          autoComplete="username"
-        />
+        <AuthField icon={<IconLock />}>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            {...inputProps}
+            autoComplete="current-password"
+          />
+        </AuthField>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={styles.input}
-          autoComplete="current-password"
-        />
+        {error && <p style={authErrorStyle()}>{error}</p>}
 
-        {error && <p style={styles.error}>{error}</p>}
-
-        <button type="submit" style={styles.button} disabled={loading}>
-          {loading ? "Signing in…" : "Login"}
+        <button type="submit" style={authButtonStyle(loading)} disabled={loading}>
+          {loading ? "Please wait…" : "Login"}
         </button>
 
-        <p>
-          <br />
+        <p className="auth-ui-footer" style={authFooterStyle()}>
           Don’t have an account? <Link to="/register">Register</Link>
         </p>
-        <p style={styles.back}>
+        <p className="auth-ui-footer" style={{ ...authFooterStyle(), marginTop: 12 }}>
           <Link to="/">← Back to home</Link>
         </p>
       </form>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "linear-gradient(180deg, #eef1ff 0%, #f6f7fb 100%)",
-  },
-  card: {
-    background: "#ffffff",
-    padding: "32px",
-    width: "360px",
-    borderRadius: "16px",
-    boxShadow: "0 14px 34px rgba(26, 26, 46, 0.14)",
-    border: "1px solid #e7e9f3",
-  },
-  title: {
-    marginTop: "0",
-    marginBottom: "12px",
-    color: "#1a1a2e",
-    fontWeight: 800,
-  },
-  input: {
-    width: "100%",
-    padding: "12px 14px",
-    margin: "10px 0",
-    boxSizing: "border-box",
-    borderRadius: "10px",
-    border: "1px solid #ccd2ea",
-    outline: "none",
-  },
-  button: {
-    width: "100%",
-    padding: "12px",
-    background: "#1a1a2e",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-    borderRadius: "10px",
-    fontWeight: 800,
-    letterSpacing: "0.02em",
-  },
-  error: { color: "#b91c1c", fontSize: "14px", marginTop: "8px" },
-  back: { marginTop: "12px", fontSize: "14px" },
-};

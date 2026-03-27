@@ -21,6 +21,7 @@ export default function CartPage() {
     try {
       const data = await fetchCart();
       setCart(data);
+      window.dispatchEvent(new Event("cart-updated"));
     } catch (err) {
       setError(err.message || "Failed to load cart");
     } finally {
@@ -33,6 +34,7 @@ export default function CartPage() {
     try {
       await removeCartItem(itemId);
       await loadCart();
+      window.dispatchEvent(new Event("cart-updated"));
     } catch (err) {
       alert(err.message || "Failed to remove item.");
     }
@@ -41,13 +43,6 @@ export default function CartPage() {
   async function handleCheckout(e) {
     e.preventDefault();
     if (!cart || !cart.items || cart.items.length === 0) return;
-    
-    // Check if any items lack a customization
-    const needsCustomization = cart.items.some(i => !i.customization);
-    if (needsCustomization) {
-      alert("Some items in your cart require customization. Please click 'Customize' on those items before checking out.");
-      return;
-    }
 
     if (!shippingAddress.trim()) {
       alert("Please provide a shipping address.");
@@ -58,16 +53,21 @@ export default function CartPage() {
     try {
       let successCount = 0;
       for (const item of cart.items) {
-        if (!item.customization) continue;
-        await placeOrder({
-          customization: item.customization,
+        const payload = {
           quantity: item.quantity,
-          shipping_address: shippingAddress.trim()
-        });
+          shipping_address: shippingAddress.trim(),
+        };
+        if (item.customization) {
+          payload.customization = item.customization;
+        } else {
+          payload.product = item.product;
+        }
+        await placeOrder(payload);
         await removeCartItem(item.id);
         successCount++;
       }
       alert(`Successfully placed ${successCount} orders! Check 'Track Order' for status.`);
+      window.dispatchEvent(new Event("cart-updated"));
       navigate("/track-order");
     } catch (err) {
       alert(err.message || "Checkout encountered an error.");
@@ -101,7 +101,7 @@ export default function CartPage() {
                     <p style={s.itemMeta}>Quantity: {item.quantity}</p>
                     <p style={s.itemPrice}>{formatNPR(p.base_price)}</p>
                     {!item.customization ? (
-                      <p style={s.warningText}>Requires Customization!</p>
+                      <p style={s.warningText}>Direct purchase item (no customization)</p>
                     ) : (
                       <p style={s.successText}>Customization applied</p>
                     )}

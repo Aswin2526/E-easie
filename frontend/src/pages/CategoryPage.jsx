@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchProducts, addToCart, addToWishlist, getStoredToken } from "../api";
+import { fetchProducts, addToCart, addToWishlist, getStoredToken, placeOrder } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
@@ -93,8 +93,8 @@ export default function CategoryPage() {
     }
     try {
       await addToCart({ product: p.id, quantity: 1 });
+      window.dispatchEvent(new Event("cart-updated"));
       alert(`${p.name} added to cart!`);
-      // Update cart count event or let the page reload / rely on next nav
     } catch (err) {
       alert(err.message || "Failed to add to cart");
     }
@@ -108,9 +108,36 @@ export default function CategoryPage() {
     }
     try {
       await addToWishlist(p.id);
+      window.dispatchEvent(new Event("wishlist-updated"));
       alert(`${p.name} added to wishlist!`);
     } catch (err) {
       alert(err.message || "Failed to add to wishlist (might be already added).");
+    }
+  }
+
+  async function handleBuyNow(p, e) {
+    e.preventDefault();
+    const shippingAddress = window.prompt("Enter shipping address:");
+    if (!shippingAddress || !shippingAddress.trim()) return;
+
+    const payload = {
+      product: p.id,
+      quantity: 1,
+      shipping_address: shippingAddress.trim(),
+    };
+    if (!getStoredToken()) {
+      const guestEmail = window.prompt("Enter your email for order tracking:");
+      if (!guestEmail || !guestEmail.trim()) {
+        alert("Email is required for guest checkout.");
+        return;
+      }
+      payload.guest_email = guestEmail.trim();
+    }
+    try {
+      await placeOrder(payload);
+      alert(`Order placed for ${p.name}! You can track it from Track Order.`);
+    } catch (err) {
+      alert(err.message || "Failed to place order.");
     }
   }
 
@@ -157,6 +184,15 @@ export default function CategoryPage() {
             {items.map((p) => (
               <article key={p.id} style={page.card}>
                 <div style={page.imgWrap}>
+                  <button
+                    type="button"
+                    style={page.wishlistEmojiBtn}
+                    onClick={(e) => handleWishlist(p, e)}
+                    title="Add to Wishlist"
+                    aria-label={`Add ${p.name} to wishlist`}
+                  >
+                    ❤️
+                  </button>
                   <img
                     src={getProductImageSrc(p)}
                     alt={p.name}
@@ -177,8 +213,8 @@ export default function CategoryPage() {
                     <button style={page.iconBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
                       🛒 Add
                     </button>
-                    <button style={page.iconBtnOutline} onClick={(e) => handleWishlist(p, e)} title="Add to Wishlist">
-                      ❤️ Wishlist
+                    <button style={page.iconBtnBuy} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
+                      Buy Now
                     </button>
                   </div>
                 </div>
@@ -222,6 +258,7 @@ const page = {
   imgWrap: {
     height: "220px",
     background: "#e5e5e5",
+    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -244,5 +281,17 @@ const page = {
   },
   actions: { display: "flex", gap: "8px" },
   iconBtn: { flex: 1, padding: "8px", background: "#f0f2f5", border: "1px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" },
-  iconBtnOutline: { flex: 1, padding: "8px", background: "transparent", border: "1px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" }
+  iconBtnBuy: { flex: 1, padding: "8px", background: "#1a1a2e", color: "#fff", border: "1px solid #1a1a2e", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" },
+  wishlistEmojiBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontSize: "22px",
+    lineHeight: 1,
+    padding: 0,
+    zIndex: 1,
+  }
 };

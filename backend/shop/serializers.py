@@ -116,6 +116,15 @@ class CustomizationSerializer(serializers.ModelSerializer):
 
 class OrderCreateSerializer(serializers.ModelSerializer):
     """Create order; unit/total price are computed from the linked product (server-side)."""
+    product = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.filter(is_active=True),
+        write_only=True,
+        required=False,
+    )
+    customization = serializers.PrimaryKeyRelatedField(
+        queryset=Customization.objects.select_related("product"),
+        required=False,
+    )
 
     class Meta:
         model = Order
@@ -123,6 +132,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "guest_email",
+            "product",
             "customization",
             "quantity",
             "unit_price",
@@ -134,10 +144,25 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "user", "unit_price", "total_price", "status", "placed_at")
 
     def validate(self, attrs):
-        customization = attrs["customization"]
-        product = customization.product
+        customization = attrs.get("customization")
+        product = attrs.get("product")
+
+        if not customization and not product:
+            raise serializers.ValidationError(
+                {"customization": "Provide customization or product for direct purchase."}
+            )
+        if customization and product and customization.product_id != product.id:
+            raise serializers.ValidationError(
+                {"product": "Selected product does not match customization product."}
+            )
+        if not customization:
+            attrs["customization"] = None
+        if not product and customization:
+            product = customization.product
+            attrs["product"] = product
+
         if not product.is_active:
-            raise serializers.ValidationError({"customization": "This product is not available for ordering."})
+            raise serializers.ValidationError({"product": "This product is not available for ordering."})
 
         request = self.context.get("request")
         guest_email = (attrs.get("guest_email") or "").strip()
@@ -154,9 +179,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get("request")
-        customization = validated_data["customization"]
         qty = validated_data.get("quantity") or 1
-        product = customization.product
+        product = validated_data["product"]
+        customization = validated_data.get("customization")
         unit = product.base_price
         total = unit * qty if isinstance(unit, Decimal) else Decimal(str(unit)) * qty
 
@@ -166,6 +191,29 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         else:
             user = None
             guest_email = validated_data["guest_email"]
+
+        # Direct buy path: generate a minimal customization snapshot automatically.
+        if customization is None:
+            customization = Customization.objects.create(
+                user=user,
+                product=product,
+                title="Direct Purchase",
+                fabric=Customization.Fabric.COTTON,
+                part_colors={},
+                size="M",
+                custom_size="",
+                pattern=Customization.Pattern.PLAIN,
+                has_collar=False,
+                sleeve_style=Customization.SleeveStyle.FULL,
+                has_pocket=False,
+                pocket_position="",
+                has_hoodie=False,
+                pant_length=Customization.PantLength.FULL
+                if product.product_type == Product.ProductType.PANT
+                else "",
+                neck_design="",
+                notes="Auto-created for direct order without customization.",
+            )
 
         return Order.objects.create(
             user=user,

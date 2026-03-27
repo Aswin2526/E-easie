@@ -13,4 +13,5 @@ router.register(r"cart", views.CartViewSet, basename="cart")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("track-order", views.track_order_view, name="track-order"),
 ]
