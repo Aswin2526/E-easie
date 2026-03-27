@@ -39,9 +39,9 @@ function Toast({ item, onDismiss }) {
         alignItems: "flex-start",
         padding: "14px 16px",
         borderRadius: "12px",
-        background: "#fff",
-        boxShadow: "0 10px 40px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06)",
-        borderLeft: `4px solid ${meta.accent}`,
+        background: "#dc2626",
+        boxShadow: "0 10px 40px rgba(127, 29, 29, 0.28), 0 0 0 1px rgba(127, 29, 29, 0.25)",
+        borderLeft: "4px solid #7f1d1d",
         maxWidth: "min(400px, calc(100vw - 32px))",
       }}
     >
@@ -66,7 +66,7 @@ function Toast({ item, onDismiss }) {
       </div>
       <div style={{ flex: 1, minWidth: 0, paddingTop: "2px" }}>
         {hasTitle ? (
-          <p style={{ margin: 0, fontSize: "15px", fontWeight: "800", color: "#0f172a", lineHeight: 1.35 }}>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "800", color: "#fff", lineHeight: 1.35 }}>
             {item.title}
           </p>
         ) : null}
@@ -75,7 +75,7 @@ function Toast({ item, onDismiss }) {
             style={{
               margin: hasTitle ? "6px 0 0 0" : 0,
               fontSize: "14px",
-              color: "#475569",
+              color: "#fee2e2",
               lineHeight: 1.5,
               wordBreak: "break-word",
             }}
@@ -94,7 +94,7 @@ function Toast({ item, onDismiss }) {
           padding: "4px 8px",
           border: "none",
           background: "transparent",
-          color: "#94a3b8",
+          color: "#fee2e2",
           fontSize: "20px",
           lineHeight: 1,
           cursor: "pointer",
