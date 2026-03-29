@@ -117,7 +117,7 @@ export default function ProductDetailPage() {
       } else {
         const created = await addToWishlist(p.id);
         setWishlistEntryId(created?.id ?? null);
-        toast.success("Saved to wishlist", `${displayName} — view it anytime under Wishlist.`);
+        toast.success({ title: displayName });
       }
       window.dispatchEvent(new Event("wishlist-updated"));
     } catch (err) {

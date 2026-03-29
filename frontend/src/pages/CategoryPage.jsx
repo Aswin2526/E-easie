@@ -292,7 +292,7 @@ export default function CategoryPage() {
       } else {
         const created = await addToWishlist(p.id);
         setWishlistByProductId((prev) => ({ ...prev, [key]: created?.id || true }));
-        toast.success("Saved to wishlist", `${p.name} — view it anytime under Wishlist.`);
+        toast.success({ title: p.name });
       }
       window.dispatchEvent(new Event("wishlist-updated"));
     } catch (err) {
