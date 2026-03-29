@@ -26,6 +26,30 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* Features Section */}
+            <section style={styles.featuresSection}>
+                <h2 style={styles.sectionTitle}>Why Choose Custom?</h2>
+                <p style={styles.sectionSubtitle}>Experience the difference of clothing made just for you.</p>
+
+                <div style={styles.featuresGrid}>
+                    <div style={styles.featureItem}>
+                        <div style={styles.featureIcon}>✂️</div>
+                        <h3 style={styles.featureTitle}>Perfect Fit Guarantee</h3>
+                        <p style={styles.featureText}>Our expert tailors ensure every garment fits your unique measurements perfectly.</p>
+                    </div>
+                    <div style={styles.featureItem}>
+                        <div style={styles.featureIcon}>📏</div>
+                        <h3 style={styles.featureTitle}>Premium Fabrics</h3>
+                        <p style={styles.featureText}>Select from our curated collection of qual fabrics sourced globally.</p>
+                    </div>
+                    <div style={styles.featureItem}>
+                        <div style={styles.featureIcon}>🚚</div>
+                        <h3 style={styles.featureTitle}>Fast Delivery</h3>
+                        <p style={styles.featureText}>Get your custom-made outfit delivered to your doorstep in as little as 7 days.</p>
+                    </div>
+                </div>
+            </section>
+
             {/* Trending Styles Section */}
             <section id="trending" style={styles.trendingSection}>
                 <div style={styles.trendingHeader}>
