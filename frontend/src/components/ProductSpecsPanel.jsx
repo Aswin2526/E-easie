@@ -1,5 +1,4 @@
 import React from "react";
-import { getProductStockQty } from "../productStock";
 
 function fabricLabel(value) {
   if (!value) return "";
@@ -29,8 +28,6 @@ export default function ProductSpecsPanel({ product, priceText, showStock = true
     product.default_fabric;
   if (!hasAny) return null;
 
-  const stock = showStock ? getProductStockQty(product) : null;
-
   return (
     <section style={box.section} aria-labelledby="product-specs-heading">
       <h2 id="product-specs-heading" style={box.title}>
@@ -39,12 +36,6 @@ export default function ProductSpecsPanel({ product, priceText, showStock = true
       {priceText ? (
         <p style={box.priceLine}>
           <strong style={box.strong}>Price</strong> {priceText}
-        </p>
-      ) : null}
-      {showStock && stock !== null ? (
-        <p style={box.meta}>
-          <strong style={box.strong}>Availability</strong>{" "}
-          {stock <= 0 ? "Out of stock" : `${stock} in stock`}
         </p>
       ) : null}
       {product.default_fabric ? (
