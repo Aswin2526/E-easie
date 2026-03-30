@@ -243,13 +243,6 @@ export default function ProductDetailPage() {
           {catalogProduct ? <ProductSpecsPanel product={catalogProduct} priceText={null} showStock /> : null}
           <ShopPoliciesCallout />
 
-          {isTrending ? (
-            <p style={page.ctaHint}>
-              Add to cart, buy now, and customize use a matching base garment from our catalog (fabric and fit options in the
-              designer).
-            </p>
-          ) : null}
-
           <div style={page.actions}>
             {ctaProduct ? (
               <Link to={customizeHref(ctaProduct)} style={page.ctaPrimary}>
@@ -356,16 +349,6 @@ const page = {
   price: { margin: "0 0 12px 0", fontSize: "18px", color: "#334155", fontWeight: 700 },
   ratingNote: { margin: "0 0 8px 0", fontSize: "14px", color: "#64748b", lineHeight: 1.45 },
   description: { margin: "20px 0 0 0", fontSize: "15px", lineHeight: 1.6, color: "#475569" },
-  ctaHint: {
-    margin: "12px 0 0 0",
-    fontSize: "13px",
-    lineHeight: 1.5,
-    color: "#64748b",
-    padding: "10px 12px",
-    background: "#f8fafc",
-    borderRadius: "8px",
-    border: "1px solid #e2e8f0",
-  },
   actions: { marginTop: "28px", display: "flex", flexDirection: "column", gap: "12px", maxWidth: "400px" },
   ctaPrimary: {
     display: "block",
