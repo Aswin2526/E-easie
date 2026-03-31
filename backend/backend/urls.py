@@ -22,7 +22,7 @@ from django.urls import include, path
 
 
 def home(request):
-    return JsonResponse({"message": "Backend is running 🚀"})
+    return JsonResponse({"message": "Backend is running successfully!"})
 
 
 urlpatterns = [

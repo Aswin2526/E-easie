@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchProducts, addToCart, addToWishlist, getStoredToken, placeOrder } from "../api";
+import {
+  fetchProducts,
+  addToCart,
+  addToWishlist,
+  fetchWishlist,
+  removeFromWishlist,
+  getStoredToken,
+  placeOrder,
+} from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
@@ -19,6 +27,7 @@ export default function CategoryPage() {
       return {};
     }
   });
+  const [wishlistByProductId, setWishlistByProductId] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +39,31 @@ export default function CategoryPage() {
         if (!cancelled) setError(e.message || "Could not load products.");
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!getStoredToken()) {
+      setWishlistByProductId({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchWishlist();
+        if (cancelled) return;
+        const items = Array.isArray(data) ? data : data.results || [];
+        const next = {};
+        for (const item of items) {
+          if (item?.product) next[String(item.product)] = item.id;
+        }
+        setWishlistByProductId(next);
+      } catch {
+        if (!cancelled) setWishlistByProductId({});
       }
     })();
     return () => {
@@ -106,12 +140,23 @@ export default function CategoryPage() {
       alert("Please sign in to add to wishlist.");
       return;
     }
+    const key = String(p.id);
+    const existingWishlistId = wishlistByProductId[key];
     try {
-      await addToWishlist(p.id);
+      if (existingWishlistId) {
+        await removeFromWishlist(existingWishlistId);
+        setWishlistByProductId((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      } else {
+        const created = await addToWishlist(p.id);
+        setWishlistByProductId((prev) => ({ ...prev, [key]: created?.id || true }));
+      }
       window.dispatchEvent(new Event("wishlist-updated"));
-      alert(`${p.name} added to wishlist!`);
     } catch (err) {
-      alert(err.message || "Failed to add to wishlist (might be already added).");
+      alert(err.message || "Failed to update wishlist.");
     }
   }
 
@@ -191,7 +236,7 @@ export default function CategoryPage() {
                     title="Add to Wishlist"
                     aria-label={`Add ${p.name} to wishlist`}
                   >
-                    ❤️
+                    {wishlistByProductId[String(p.id)] ? "❤️" : "♡"}
                   </button>
                   <img
                     src={getProductImageSrc(p)}
