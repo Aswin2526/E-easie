@@ -381,8 +381,8 @@ const page = {
   row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" },
   btnCart: {
     padding: "11px 14px",
-    background: "#fff6df",
-    border: "1px solid #f0e1b7",
+    background: "#fee2e2",
+    border: "1px solid #fecaca",
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: 700,
@@ -391,8 +391,8 @@ const page = {
   },
   btnBuy: {
     padding: "11px 14px",
-    background: "#e7f8ea",
-    border: "1px solid #c8e9cd",
+    background: "#fee2e2",
+    border: "1px solid #fecaca",
     borderRadius: "8px",
     cursor: "pointer",
     fontWeight: 700,
