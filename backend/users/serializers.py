@@ -9,7 +9,6 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
-    role = serializers.ChoiceField(choices=[("user", "User"), ("admin", "Admin")], default="user")
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -25,7 +24,6 @@ class RegisterSerializer(serializers.Serializer):
         name = validated_data["name"].strip()
         email = validated_data["email"].strip().lower()
         password = validated_data["password"]
-        role = validated_data.get("role", "user")
 
         base = email.split("@")[0].replace(" ", "") or "user"
         username = base
@@ -40,9 +38,6 @@ class RegisterSerializer(serializers.Serializer):
             password=password,
             first_name=name,
         )
-        if role == "admin":
-            user.is_staff = True
-            user.save(update_fields=["is_staff"])
         return user
 
 

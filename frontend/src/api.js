@@ -93,7 +93,7 @@ export function loginUser(email, password) {
   });
 }
 
-export function registerUser({ name, email, password, password2, role }) {
+export function registerUser({ name, email, password, password2 }) {
   return apiFetch("/api/users/register/", {
     method: "POST",
     body: JSON.stringify({
@@ -101,7 +101,6 @@ export function registerUser({ name, email, password, password2, role }) {
       email,
       password,
       password2,
-      role,
     }),
   });
 }

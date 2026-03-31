@@ -7,14 +7,12 @@ import {
   IconEnvelope,
   IconLock,
   IconPerson,
-  IconUsers,
   authButtonStyle,
   authCardStyle,
   authErrorStyle,
   authFooterStyle,
   authInputProps,
   authPageStyle,
-  authSelectProps,
 } from "../auth/AuthUi";
 
 function parseApiError(err) {
@@ -33,12 +31,10 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
-  const [role, setRole] = useState("user");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const inputProps = authInputProps();
-  const selectProps = authSelectProps();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -58,7 +54,6 @@ export default function RegisterPage() {
         email,
         password,
         password2,
-        role,
       });
       persistAuth({ token: res?.token, role: res?.role, name: res?.user?.name });
       navigate(res?.role === "admin" ? "/admin/dashboard" : "/");
@@ -115,18 +110,6 @@ export default function RegisterPage() {
             {...inputProps}
             autoComplete="new-password"
           />
-        </AuthField>
-
-        <AuthField icon={<IconUsers />}>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            {...selectProps}
-            aria-label="Account type"
-          >
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
         </AuthField>
 
         {error && <p style={authErrorStyle()}>{error}</p>}
