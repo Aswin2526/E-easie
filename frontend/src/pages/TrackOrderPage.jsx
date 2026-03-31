@@ -326,9 +326,6 @@ export default function TrackOrderPage() {
     <div style={s.wrap}>
       <header style={s.header}>
         <h1 style={s.title}>Track order</h1>
-        <p style={s.sub}>
-          Track one order with order number, or view your recent orders when signed in.
-        </p>
       </header>
 
       <form onSubmit={handleSubmit} style={s.form}>
