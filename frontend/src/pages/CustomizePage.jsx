@@ -24,7 +24,6 @@ import {
   trendingShowcaseMore,
 } from "../data/trendingShowcases";
 import ProductStarsLine from "../components/ProductStarsLine";
-import ProductSpecsPanel from "../components/ProductSpecsPanel";
 import { useNotify } from "../contexts/NotifyContext";
 
 
@@ -810,9 +809,6 @@ export default function CustomizePage() {
                   {formatNPR(orderUnitPrice)}
                   {orderPriceBreakdownNote}
                 </p>
-                <div style={{ marginTop: "12px", maxWidth: "520px" }}>
-                  <ProductSpecsPanel product={selectedProduct} priceText={null} showStock />
-                </div>
                 <div style={s.checkoutShortcut}>
                   <button
                     type="button"
