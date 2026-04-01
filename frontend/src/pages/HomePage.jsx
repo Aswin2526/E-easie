@@ -302,8 +302,8 @@ const styles = {
     },
     trendingGrid: {
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-        gap: "30px",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: "24px",
     },
     productCard: {
         background: "#fff",
@@ -313,7 +313,7 @@ const styles = {
     },
     productImage: {
         width: "100%",
-        height: "350px",
+        height: "300px",
         objectFit: "cover",
     },
     productInfo: {

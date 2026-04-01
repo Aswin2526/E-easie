@@ -101,6 +101,104 @@ export default function TrackOrderPage() {
     }
   };
 
+  const handlePrintReport = () => {
+    if (!selectedOrder) return;
+    const reportWindow = window.open("", "_blank", "width=900,height=700");
+    if (!reportWindow) {
+      alert("Please allow popups to print the order report.");
+      return;
+    }
+
+    const statusRows = (selectedOrder.status_steps || [])
+      .map((step) => `<li><strong>${step.title}</strong> - ${step.state}</li>`)
+      .join("");
+    const msgRows = (selectedOrder.messages || [])
+      .map((m) => `<li><strong>${m.from}</strong>: ${m.text}</li>`)
+      .join("");
+    const designImage = selectedOrder.order_details?.design_image_url
+      ? `<img src="${selectedOrder.order_details.design_image_url}" alt="Design" style="max-width:180px;border:1px solid #ddd;border-radius:8px;" />`
+      : "<p>-</p>";
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Order Report #${selectedOrder.order_id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 12px; color: #0f172a; }
+            h2 { margin: 22px 0 8px; color: #0f172a; font-size: 18px; }
+            .grid { display: grid; grid-template-columns: 180px 1fr; gap: 8px 12px; }
+            .k { color: #475569; font-weight: 700; }
+            .v { color: #111827; }
+            ul { margin: 6px 0 0; padding-left: 18px; }
+            .tag { display: inline-block; padding: 4px 10px; border-radius: 999px; color: #fff; font-weight: 700; }
+            .paid { background: #15803d; }
+            .pending { background: #ca8a04; }
+            .partial { background: #ea580c; }
+            @media print { button { display: none; } }
+          </style>
+        </head>
+        <body>
+          <h1>Order Report #${selectedOrder.order_id}</h1>
+          <div class="grid">
+            <div class="k">Placed date</div><div class="v">${selectedOrder.placed_date || "-"}</div>
+            <div class="k">Expected delivery</div><div class="v">${selectedOrder.expected_delivery_date || "-"}</div>
+            <div class="k">Customer</div><div class="v">${selectedOrder.customer_name || "-"}</div>
+            <div class="k">Order status</div><div class="v">${selectedOrder.order_status || "-"}</div>
+          </div>
+
+          <h2>Order Details</h2>
+          <div class="grid">
+            <div class="k">Clothing type</div><div class="v">${selectedOrder.order_details?.clothing_type || "-"}</div>
+            <div class="k">Size</div><div class="v">${selectedOrder.order_details?.size || "-"}</div>
+            <div class="k">Color</div><div class="v">${selectedOrder.order_details?.color || "-"}</div>
+            <div class="k">Design description</div><div class="v">${selectedOrder.order_details?.design_description || "-"}</div>
+            <div class="k">Design image</div><div class="v">${designImage}</div>
+          </div>
+
+          <h2>Status Timeline</h2>
+          <ul>${statusRows || "<li>-</li>"}</ul>
+
+          <h2>Payment</h2>
+          <div class="grid">
+            <div class="k">Total</div><div class="v">${formatNPR(selectedOrder.payment?.total_price)}</div>
+            <div class="k">Paid</div><div class="v">${formatNPR(selectedOrder.payment?.paid_amount)}</div>
+            <div class="k">Remaining</div><div class="v">${formatNPR(selectedOrder.payment?.remaining_amount)}</div>
+            <div class="k">Status</div><div class="v">
+              <span class="tag ${
+                selectedOrder.payment?.status === "Paid"
+                  ? "paid"
+                  : selectedOrder.payment?.status === "Pending"
+                    ? "pending"
+                    : "partial"
+              }">${selectedOrder.payment?.status || "-"}</span>
+            </div>
+          </div>
+
+          <h2>Shipping</h2>
+          <div class="grid">
+            <div class="k">Method</div><div class="v">${selectedOrder.shipping?.method || "-"}</div>
+            <div class="k">Tracking number</div><div class="v">${selectedOrder.shipping?.tracking_number || "-"}</div>
+            <div class="k">Address</div><div class="v">${selectedOrder.shipping?.address || "-"}</div>
+          </div>
+
+          <h2>Messages</h2>
+          <ul>${msgRows || "<li>-</li>"}</ul>
+
+          <script>
+            window.onload = function () { window.print(); };
+          </script>
+        </body>
+      </html>
+    `;
+
+    reportWindow.document.open();
+    reportWindow.document.write(html);
+    reportWindow.document.close();
+  };
+
   return (
     <div style={s.wrap}>
       <header style={s.header}>
@@ -159,6 +257,11 @@ export default function TrackOrderPage() {
 
       {selectedOrder && (
         <div style={s.stack}>
+          <div style={s.reportActions}>
+            <button type="button" style={s.reportBtn} onClick={handlePrintReport}>
+              Print / Save PDF
+            </button>
+          </div>
           <div style={s.card}>
             <h2 style={s.cardTitle}>Order Details</h2>
             <div style={s.rows}>
@@ -332,6 +435,16 @@ const s = {
   },
   orderChipActive: { background: "#dbeafe", borderColor: "#93c5fd" },
   stack: { marginTop: "24px", display: "grid", gap: "16px" },
+  reportActions: { display: "flex", justifyContent: "flex-end" },
+  reportBtn: {
+    border: "1px solid #0f172a",
+    background: "#0f172a",
+    color: "#fff",
+    borderRadius: 8,
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontWeight: 700,
+  },
   card: {
     padding: "20px",
     borderRadius: "12px",

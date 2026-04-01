@@ -162,6 +162,10 @@ export default function CategoryPage() {
 
   async function handleBuyNow(p, e) {
     e.preventDefault();
+    if (!getStoredToken()) {
+      alert("Please sign in to purchase this product.");
+      return;
+    }
     const shippingAddress = window.prompt("Enter shipping address:");
     if (!shippingAddress || !shippingAddress.trim()) return;
 
@@ -170,14 +174,6 @@ export default function CategoryPage() {
       quantity: 1,
       shipping_address: shippingAddress.trim(),
     };
-    if (!getStoredToken()) {
-      const guestEmail = window.prompt("Enter your email for order tracking:");
-      if (!guestEmail || !guestEmail.trim()) {
-        alert("Email is required for guest checkout.");
-        return;
-      }
-      payload.guest_email = guestEmail.trim();
-    }
     try {
       await placeOrder(payload);
       alert(`Order placed for ${p.name}! You can track it from Track Order.`);

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchProducts, placeOrder, saveCustomization, addToCart } from "../api";
+import { fetchProducts, saveCustomization, addToCart, getStoredRole, getStoredToken } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
@@ -54,7 +54,7 @@ export default function CustomizePage() {
   const [hasPocket, setHasPocket] = useState(false);
   const [pocketPosition, setPocketPosition] = useState("left_chest");
   const [pantPockets, setPantPockets] = useState([]);
-  const [skirtPocket, setSkirtPocket] = useState("one_side");
+  const [skirtPocket, setSkirtPocket] = useState("right_side");
   const [hoodieZipper, setHoodieZipper] = useState("zipper");
   const [hoodiePocket, setHoodiePocket] = useState("pocket");
   const [shirtPocket, setShirtPocket] = useState("left_chest");
@@ -79,9 +79,20 @@ export default function CustomizePage() {
 
   const [orderQty, setOrderQty] = useState(1);
   const [shippingAddress, setShippingAddress] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
   const [ordering, setOrdering] = useState(false);
   const [orderMessage, setOrderMessage] = useState(null);
+  const [showSubscribeToast, setShowSubscribeToast] = useState(false);
+
+  const isLoggedIn = Boolean(getStoredToken());
+  const isFreeUser = isLoggedIn && getStoredRole() === "user";
+
+  function notifySubscriptionRequired() {
+    setShowSubscribeToast(true);
+    window.clearTimeout(window.__customizeToastTimer);
+    window.__customizeToastTimer = window.setTimeout(() => {
+      setShowSubscribeToast(false);
+    }, 3000);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +207,9 @@ export default function CustomizePage() {
           }
         : isSkirt
           ? {
-              body: bodyColor,
+              front: bodyColor,
+              back: backColor,
+              side: sleevesColor,
             }
           : isHoodie
             ? {
@@ -251,6 +264,10 @@ export default function CustomizePage() {
 
   async function handleSaveDesign(e) {
     e.preventDefault();
+    if (isFreeUser) {
+      notifySubscriptionRequired();
+      return;
+    }
     setSaveMessage(null);
     setOrderMessage(null);
     if (!productId) {
@@ -346,6 +363,10 @@ export default function CustomizePage() {
 
   async function handleAddToCartFlow(e) {
     e.preventDefault();
+    if (isFreeUser) {
+      notifySubscriptionRequired();
+      return;
+    }
     setOrderMessage(null);
     if (!savedCustomizationId) {
       setOrderMessage("Save your design first.");
@@ -478,6 +499,7 @@ export default function CustomizePage() {
 
 
 
+      <div style={s.customizationWrap}>
       <form onSubmit={handleSaveDesign} style={s.form}>
 
         <label style={s.label}>
@@ -499,7 +521,7 @@ export default function CustomizePage() {
           <legend style={s.legend}>Color segments</legend>
           <div style={s.row}>
             <label style={s.inline}>
-            {isPant ? "Front" : isTshirt ? "Color" : "Body"}
+            {isPant || isSkirt ? "Front" : isTshirt ? "Color" : "Body"}
               <input
                 type="color"
                 value={bodyColor}
@@ -515,6 +537,25 @@ export default function CustomizePage() {
                   onChange={(e) => setBackColor(e.target.value)}
                 />
               </label>
+            ) : isSkirt ? (
+              <>
+                <label style={s.inline}>
+                  Back
+                  <input
+                    type="color"
+                    value={backColor}
+                    onChange={(e) => setBackColor(e.target.value)}
+                  />
+                </label>
+                <label style={s.inline}>
+                  Side
+                  <input
+                    type="color"
+                    value={sleevesColor}
+                    onChange={(e) => setSleevesColor(e.target.value)}
+                  />
+                </label>
+              </>
             ) : isHoodie || isJacket ? (
               <label style={s.inline}>
                 Sleeves
@@ -705,8 +746,13 @@ export default function CustomizePage() {
               value={skirtPocket}
               onChange={(e) => setSkirtPocket(e.target.value)}
             >
-              <option value="one_side">One side</option>
-              <option value="both_sides">Both sides</option>
+              <option value="right_side">Right side</option>
+              <option value="left_side">Left side</option>
+              <option value="both_side">Both side</option>
+              <option value="center_front">Centre front</option>
+              <option value="center_back">Centre back</option>
+              <option value="both_front">Both front</option>
+              <option value="both_back">Both back</option>
             </select>
           </label>
         ) : isHoodie ? (
@@ -937,6 +983,10 @@ export default function CustomizePage() {
         </button>
         {saveMessage && <p style={s.msg}>{saveMessage}</p>}
       </form>
+      {isFreeUser ? (
+        <button type="button" onClick={notifySubscriptionRequired} style={s.customizationOverlay} aria-label="Customization locked for free users" />
+      ) : null}
+      </div>
 
       <section style={s.orderSection}>
         <h2 style={s.orderTitle}>Place order</h2>
@@ -966,6 +1016,18 @@ export default function CustomizePage() {
           {orderMessage && <p style={s.msg}>{orderMessage}</p>}
         </form>
       </section>
+      {showSubscribeToast ? (
+        <div style={s.toast}>
+          <span>Subscribe for your own customization</span>
+          <button
+            type="button"
+            style={s.subscribeBtn}
+            onClick={() => alert("Subscription plans will be available soon.")}
+          >
+            Subscribe
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1088,6 +1150,15 @@ const s = {
     fontSize: "14px",
     color: "#374151",
   },
+  customizationWrap: { position: "relative" },
+  customizationOverlay: {
+    position: "absolute",
+    inset: 0,
+    border: "none",
+    background: "transparent",
+    cursor: "not-allowed",
+    zIndex: 2,
+  },
   form: { display: "flex", flexDirection: "column", gap: "14px" },
   label: { display: "flex", flexDirection: "column", gap: "6px", fontWeight: "600", fontSize: "14px" },
   input: {
@@ -1128,4 +1199,27 @@ const s = {
     borderTop: "1px solid #eee",
   },
   orderTitle: { fontSize: "20px", fontWeight: "800", marginBottom: "8px" },
+  toast: {
+    position: "fixed",
+    right: 18,
+    bottom: 18,
+    background: "#1f2937",
+    color: "#fff",
+    padding: "12px 14px",
+    borderRadius: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    zIndex: 999,
+    boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
+  },
+  subscribeBtn: {
+    border: "1px solid #fecaca",
+    background: "#fecaca",
+    color: "#7f1d1d",
+    borderRadius: 8,
+    padding: "6px 10px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
 };
