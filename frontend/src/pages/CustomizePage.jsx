@@ -1402,12 +1402,15 @@ const s = {
   stepHint: { margin: "0 0 14px 0", fontSize: "13px", color: "#666" },
   stepMuted: { margin: "0 0 8px 0", fontSize: "14px", color: "#888", fontStyle: "italic" },
   categoryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+    display: "flex",
+    flexWrap: "nowrap",
     gap: "10px",
+    overflowX: "auto",
+    paddingBottom: "2px",
   },
   categoryChip: {
     display: "flex",
+    flex: "0 0 150px",
     flexDirection: "column",
     alignItems: "flex-start",
     gap: "4px",
