@@ -503,16 +503,16 @@ const page = {
     boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
   },
   filterRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "flex-end",
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(160px, 1fr))",
     gap: "14px 20px",
+    alignItems: "end",
   },
   filterGroup: {
     display: "flex",
     flexDirection: "column",
     gap: "6px",
-    minWidth: "min(160px, 100%)",
+    minWidth: 0,
   },
   filterLabel: {
     fontSize: "11px",
@@ -520,6 +520,8 @@ const page = {
     color: "#64748b",
     textTransform: "uppercase",
     letterSpacing: "0.06em",
+    lineHeight: 1.2,
+    minHeight: "14px",
   },
   filterSelect: {
     border: "1px solid #d1d5db",
@@ -531,9 +533,10 @@ const page = {
     background: "#fff",
     fontFamily: "inherit",
     cursor: "pointer",
-    minWidth: "0",
+    minWidth: 0,
     width: "100%",
-    maxWidth: "220px",
+    height: "40px",
+    boxSizing: "border-box",
   },
 
   title: { fontSize: "28px", fontWeight: "800", color: "#1a1a2e" },
