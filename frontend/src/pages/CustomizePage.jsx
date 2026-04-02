@@ -787,16 +787,6 @@ export default function CustomizePage() {
                         )}
                         <span style={s.productPrice}>{formatNPR(isTrending ? p.price : p.base_price)}</span>
                       </div>
-                      {selected && (
-                        <span
-                          style={{
-                            ...s.selectedTag,
-                            ...(isTrending ? { background: "#e11d48" } : {}),
-                          }}
-                        >
-                          Selected
-                        </span>
-                      )}
                     </button>
                   );
                 })}
