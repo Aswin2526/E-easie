@@ -1337,14 +1337,6 @@ export default function CustomizePage() {
             >
               {ordering ? "Adding..." : "Add to Cart"}
             </button>
-            <button
-              type="button"
-              style={{ ...s.secondary, ...s.orderActionBtn }}
-              disabled={!savedCustomizationId}
-              onClick={() => navigate("/cart")}
-            >
-              Proceed to Checkout
-            </button>
           </div>
         </form>
       </section>

@@ -637,13 +637,13 @@ const page = {
   addToCartBtn: {
     width: "100%",
     padding: "10px 12px",
-    background: "#fff6df",
-    border: "1px solid #f0e1b7",
+    background: "#e7f8ea",
+    color: "#1f2937",
+    border: "1px solid #c8e9cd",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "13px",
     fontWeight: "700",
-    color: "#1f2937",
   },
   buyNowBtn: {
     width: "100%",

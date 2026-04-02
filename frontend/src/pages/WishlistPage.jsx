@@ -97,7 +97,7 @@ export default function WishlistPage() {
                     <div style={s.cartBuyRow}>
                       <button
                         type="button"
-                        style={s.btnPrimary}
+                        style={s.btnBuyNow}
                         onClick={() => handleAddToCart(p)}
                       >
                         Add to Cart
