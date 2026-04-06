@@ -38,7 +38,6 @@ import skirtBlackRuchedMaxi from "./assets/skirts/black-ruched-side-slit-maxi-sk
 import skirtWhiteMiniSlit from "./assets/skirts/white-mini-side-slit-skirt.png";
 import skirtDenimPencil from "./assets/skirts/high-waist-denim-pencil-skirt.png";
 import pantBeigeTailored from "./assets/pants/classic-beige-tailored-trousers.png";
-import pantCreamJoggers from "./assets/pants/slim-fit-cream-joggers.png";
 import pantOliveChinoShorts from "./assets/pants/olive-chino-shorts.png";
 import pantKhakiLinenShorts from "./assets/pants/khaki-linen-shorts.png";
 import pantCharcoalWideDenim from "./assets/pants/charcoal-wide-leg-denim-jeans.png";
@@ -118,7 +117,6 @@ const SKIRT_IMAGES_BY_SLUG = {
 
 const PANT_IMAGES_BY_SLUG = {
   "classic-beige-tailored-trousers": pantBeigeTailored,
-  "slim-fit-cream-joggers": pantCreamJoggers,
   "olive-chino-shorts": pantOliveChinoShorts,
   "khaki-linen-shorts": pantKhakiLinenShorts,
   "charcoal-wide-leg-denim-jeans": pantCharcoalWideDenim,

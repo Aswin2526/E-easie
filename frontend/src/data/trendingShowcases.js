@@ -92,7 +92,7 @@ export const trendingShowcaseMore = [
     typeLabel: "Trending",
     description:
       "Tapered joggers in a deep green wash with drawstring waist and ankle-friendly cuffs for relaxed days.",
-    catalogSlug: "slim-fit-cream-joggers",
+    catalogSlug: "classic-beige-tailored-trousers",
   }),
   reg({
     showcaseSlug: "bridal-golden-lehenga",

@@ -22,13 +22,6 @@ PANT_ITEMS = [
         "pant-beige-tailored-trousers.png",
     ),
     (
-        "slim-fit-cream-joggers",
-        "Slim-Fit Cream Joggers",
-        "Tapered cream joggers with drawstring waist and zippered side pockets.",
-        "42.00",
-        "pant-cream-joggers.png",
-    ),
-    (
         "olive-chino-shorts",
         "Classic Olive Chino Shorts",
         "Slim olive chino shorts with belt loops, button fly, and side pockets.",
@@ -80,11 +73,19 @@ def _remove_legacy_slim_chino():
         product.delete()
 
 
+def _remove_slim_fit_cream_joggers():
+    for product in Product.objects.filter(slug="slim-fit-cream-joggers"):
+        for cust in product.customizations.all():
+            Order.objects.filter(customization=cust).delete()
+        product.delete()
+
+
 class Command(BaseCommand):
     help = "Seed pant products with photos; removes legacy seed_demo 'Slim Chino Pant'."
 
     def handle(self, *args, **options):
         _remove_legacy_slim_chino()
+        _remove_slim_fit_cream_joggers()
 
         media_products = Path(settings.MEDIA_ROOT) / "products"
         media_products.mkdir(parents=True, exist_ok=True)
