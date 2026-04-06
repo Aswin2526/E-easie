@@ -7,7 +7,6 @@ import trendingSkyBlueButtonTop from "../assets/trending_sky_blue_button_top.png
 import trendingPuffSleeveBlueTop from "../assets/trending_puff_sleeve_blue_top.png";
 import trendingBerryZipKnit from "../assets/trending_berry_zip_knit.png";
 import trendingMaroonFloralCardigan from "../assets/trending_maroon_floral_cardigan.png";
-import trendingTaupeWrapSkirt from "../assets/trending_taupe_wrap_skirt.png";
 
 /** Curated hero images (add files under src/assets/ and switch imports if these paths break). */
 const trendingWomenFestiveSet =
@@ -161,17 +160,6 @@ export const trendingShowcaseMore = [
       "Maroon floral cardigan with button front and cozy weight—throws on over tees and dresses alike.",
     catalogSlug: "oversized-lavender-longline-shirt",
   }),
-  reg({
-    showcaseSlug: "taupe-wrap-skirt",
-    img: trendingTaupeWrapSkirt,
-    alt: "Taupe Wrap Skirt",
-    title: "Taupe Wrap Skirt",
-    price: 2699,
-    typeLabel: "Trending",
-    description:
-      "Taupe wrap skirt with a secure tie and midi length—office-ready with boots or sandals.",
-    catalogSlug: "high-waist-denim-pencil-skirt",
-  }),
 ];
 
 export function getTrendingShowcase(slugOrId) {
@@ -197,7 +185,6 @@ const SHOWCASE_PRIMARY_HEX = {
   "puff-sleeve-blue-top": "#3d6aa8",
   "berry-zip-knit-top": "#8b2f5c",
   "maroon-floral-cardigan": "#6b2435",
-  "taupe-wrap-skirt": "#a89884",
 };
 
 /**
@@ -211,7 +198,7 @@ export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
   if (!primary) return {};
   let type = String(catalogProduct.product_type || "").toLowerCase();
   const slug = showcaseEntry.showcaseSlug;
-  if (["festive-beige-set", "floral-maxi-skirt", "taupe-wrap-skirt", "bridal-golden-lehenga"].includes(slug)) {
+  if (["festive-beige-set", "floral-maxi-skirt", "bridal-golden-lehenga"].includes(slug)) {
     type = "skirt";
   } else if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
     type = "pant";
