@@ -43,7 +43,6 @@ import pantKhakiLinenShorts from "./assets/pants/khaki-linen-shorts.png";
 import pantCharcoalWideDenim from "./assets/pants/charcoal-wide-leg-denim-jeans.png";
 import pantBlackFormal from "./assets/pants/black-formal-trousers.png";
 import pantDustyPinkWide from "./assets/pants/dusty-pink-wide-leg-pants.png";
-import pantBlackLeggings from "./assets/pants/black-high-waist-leggings.png";
 import hoodieHeatherGrey from "./assets/hoodies/heather-grey-oversized-pullover-hoodie.png";
 import hoodieLightGreyZip from "./assets/hoodies/light-grey-full-zip-hoodie.png";
 import hoodieBlackPullover from "./assets/hoodies/black-pullover-hoodie.png";
@@ -122,7 +121,6 @@ const PANT_IMAGES_BY_SLUG = {
   "charcoal-wide-leg-denim-jeans": pantCharcoalWideDenim,
   "black-formal-trousers": pantBlackFormal,
   "dusty-pink-wide-leg-pants": pantDustyPinkWide,
-  "black-high-waist-leggings": pantBlackLeggings,
 };
 
 /**

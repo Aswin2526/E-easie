@@ -56,13 +56,6 @@ PANT_ITEMS = [
         "44.00",
         "pant-dusty-pink-wide-leg.png",
     ),
-    (
-        "black-high-waist-leggings",
-        "Black High-Waist Leggings",
-        "Full-length matte black leggings with a high waist and second-skin fit.",
-        "32.00",
-        "pant-black-leggings.png",
-    ),
 ]
 
 
@@ -80,12 +73,20 @@ def _remove_slim_fit_cream_joggers():
         product.delete()
 
 
+def _remove_black_high_waist_leggings():
+    for product in Product.objects.filter(slug="black-high-waist-leggings"):
+        for cust in product.customizations.all():
+            Order.objects.filter(customization=cust).delete()
+        product.delete()
+
+
 class Command(BaseCommand):
     help = "Seed pant products with photos; removes legacy seed_demo 'Slim Chino Pant'."
 
     def handle(self, *args, **options):
         _remove_legacy_slim_chino()
         _remove_slim_fit_cream_joggers()
+        _remove_black_high_waist_leggings()
 
         media_products = Path(settings.MEDIA_ROOT) / "products"
         media_products.mkdir(parents=True, exist_ok=True)
