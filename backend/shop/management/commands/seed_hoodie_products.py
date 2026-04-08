@@ -64,14 +64,6 @@ HOODIE_ITEMS = [
         "2899",
         "hoodie-off-white-oversized-zip.png",
     ),
-    (
-        "training-dept-sleeveless-hoodie-black",
-        "Training Dept. Sleeveless Hoodie — Black",
-        "Premium black muscle hoodie with TRAINING DEPT. chest branding. Sleeveless cut for range of motion, "
-        "kangaroo pocket, drawstring hood, and ribbed hem — built for gym and athletic wear.",
-        "2199",
-        "hoodie-training-dept-sleeveless-black.png",
-    ),
 ]
 
 
@@ -82,11 +74,19 @@ def _remove_legacy_street_hoodie():
         product.delete()
 
 
+def _remove_training_dept_sleeveless_hoodie():
+    for product in Product.objects.filter(slug="training-dept-sleeveless-hoodie-black"):
+        for cust in product.customizations.all():
+            Order.objects.filter(customization=cust).delete()
+        product.delete()
+
+
 class Command(BaseCommand):
     help = "Seed hoodie products with photos; removes legacy seed_demo 'Street Hoodie'."
 
     def handle(self, *args, **options):
         _remove_legacy_street_hoodie()
+        _remove_training_dept_sleeveless_hoodie()
 
         media_products = Path(settings.MEDIA_ROOT) / "products"
         media_products.mkdir(parents=True, exist_ok=True)
