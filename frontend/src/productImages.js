@@ -18,7 +18,6 @@ import teeBlackLong from "./assets/tshirts/black-long-sleeve-crew-tee.png";
 import teeYellowPolo from "./assets/tshirts/yellow-polo-shirt.png";
 import teeOversizedWhite from "./assets/tshirts/oversized-white-longline-tee.png";
 import teeBlackCrop from "./assets/tshirts/black-crop-crew-tee.png";
-import teeWhiteCrop from "./assets/tshirts/white-long-sleeve-crop-top.png";
 import teeWhiteRelaxed from "./assets/tshirts/white-relaxed-long-sleeve-tee.png";
 import teeBlueSleeveless from "./assets/tshirts/blue-sleeveless-ribbed-crop-top.png";
 import shirtWhiteOxford from "./assets/shirts/white-oxford-dress-shirt.png";
@@ -87,7 +86,6 @@ const TSHIRT_IMAGES_BY_SLUG = {
   "yellow-polo-shirt": teeYellowPolo,
   "oversized-white-longline-long-sleeve-tee": teeOversizedWhite,
   "black-crop-crew-neck-tee": teeBlackCrop,
-  "white-long-sleeve-crop-top": teeWhiteCrop,
   "white-relaxed-long-sleeve-tee": teeWhiteRelaxed,
   "blue-sleeveless-ribbed-crop-top": teeBlueSleeveless,
 };

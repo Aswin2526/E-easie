@@ -52,13 +52,6 @@ TSHIRT_ITEMS = [
         "tshirt-black-crop-crew.png",
     ),
     (
-        "white-long-sleeve-crop-top",
-        "White Long-Sleeve Crop Top",
-        "White long-sleeve cropped top with crew neck and relaxed shoulders.",
-        "650",
-        "tshirt-white-long-sleeve-crop.png",
-    ),
-    (
         "white-relaxed-long-sleeve-tee",
         "White Relaxed Long-Sleeve T-Shirt",
         "Relaxed-fit white long-sleeve tee with crew neck.",
@@ -83,11 +76,19 @@ def _remove_legacy_classic_tee():
         product.delete()
 
 
+def _remove_white_long_sleeve_crop_top():
+    for product in Product.objects.filter(slug="white-long-sleeve-crop-top"):
+        for cust in product.customizations.all():
+            Order.objects.filter(customization=cust).delete()
+        product.delete()
+
+
 class Command(BaseCommand):
     help = "Seed t-shirt products with photos; removes legacy 'Classic Tee' without a real image."
 
     def handle(self, *args, **options):
         _remove_legacy_classic_tee()
+        _remove_white_long_sleeve_crop_top()
 
         media_products = Path(settings.MEDIA_ROOT) / "products"
         media_products.mkdir(parents=True, exist_ok=True)
