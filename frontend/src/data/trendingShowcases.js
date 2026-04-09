@@ -6,7 +6,6 @@ import trendingGreyDrawstringPants from "../assets/trending_grey_drawstring_pant
 import trendingSkyBlueButtonTop from "../assets/trending_sky_blue_button_top.png";
 import trendingPuffSleeveBlueTop from "../assets/trending_puff_sleeve_blue_top.png";
 import trendingBerryZipKnit from "../assets/trending_berry_zip_knit.png";
-import trendingMaroonFloralCardigan from "../assets/trending_maroon_floral_cardigan.png";
 
 /** Curated hero images (add files under src/assets/ and switch imports if these paths break). */
 const trendingWomenFestiveSet =
@@ -149,17 +148,6 @@ export const trendingShowcaseMore = [
       "Berry-toned zip knit with a high collar and soft texture—perfect between-season layering.",
     catalogSlug: "mint-quarter-zip-hoodie",
   }),
-  reg({
-    showcaseSlug: "maroon-floral-cardigan",
-    img: trendingMaroonFloralCardigan,
-    alt: "Maroon Floral Cardigan",
-    title: "Maroon Floral Cardigan",
-    price: 3199,
-    typeLabel: "Trending",
-    description:
-      "Maroon floral cardigan with button front and cozy weight—throws on over tees and dresses alike.",
-    catalogSlug: "oversized-lavender-longline-shirt",
-  }),
 ];
 
 export function getTrendingShowcase(slugOrId) {
@@ -184,7 +172,6 @@ const SHOWCASE_PRIMARY_HEX = {
   "sky-blue-button-top": "#7eb6eb",
   "puff-sleeve-blue-top": "#3d6aa8",
   "berry-zip-knit-top": "#8b2f5c",
-  "maroon-floral-cardigan": "#6b2435",
 };
 
 /**
@@ -202,7 +189,7 @@ export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
     type = "skirt";
   } else if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
     type = "pant";
-  } else if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top", "berry-zip-knit-top", "maroon-floral-cardigan"].includes(slug)) {
+  } else if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top", "berry-zip-knit-top"].includes(slug)) {
     type = "tshirt";
   }
   if (type === "pant") return { front: primary, back: primary };
