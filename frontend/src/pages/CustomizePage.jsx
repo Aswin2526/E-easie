@@ -389,7 +389,7 @@ export default function CustomizePage() {
   const activeProductType = useMemo(() => {
     if (relatedShowcase) {
       const slug = relatedShowcase.showcaseSlug;
-      if (["festive-beige-set", "floral-maxi-skirt", "bridal-golden-lehenga"].includes(slug)) {
+      if (["festive-beige-set", "floral-maxi-skirt"].includes(slug)) {
         return "skirt";
       }
       if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {

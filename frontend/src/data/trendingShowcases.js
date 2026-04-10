@@ -12,8 +12,6 @@ const trendingWomenFestiveSet =
   "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-e7d1bd40-e819-415f-9dc9-df9cec8710fd.png";
 const trendingMenClassicDaura =
   "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-4fb4fe9f-d914-4352-b61a-2e9ea608695e.png";
-const trendingBridalGoldenLehenga =
-  "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-94ff44b2-3ee6-4a8c-bb1c-df8cb2932e16.png";
 
 const bySlug = new Map();
 
@@ -94,17 +92,6 @@ export const trendingShowcaseMore = [
     catalogSlug: "classic-beige-tailored-trousers",
   }),
   reg({
-    showcaseSlug: "bridal-golden-lehenga",
-    img: trendingBridalGoldenLehenga,
-    alt: "Bridal Golden Lehenga",
-    title: "Bridal Golden Lehenga",
-    price: 18999,
-    typeLabel: "Trending",
-    description:
-      "Bridal golden lehenga with ornate embroidery and a voluminous skirt—made for your big day and receptions.",
-    catalogSlug: "white-tiered-maxi-skirt",
-  }),
-  reg({
     showcaseSlug: "grey-drawstring-pants",
     img: trendingGreyDrawstringPants,
     alt: "Grey Drawstring Pants",
@@ -167,7 +154,6 @@ const SHOWCASE_PRIMARY_HEX = {
   "floral-maxi-skirt": "#181818",
   "olive-long-coat": "#4a5438",
   "green-jogger-pants": "#2f4d38",
-  "bridal-golden-lehenga": "#c9a227",
   "grey-drawstring-pants": "#8e9298",
   "sky-blue-button-top": "#7eb6eb",
   "puff-sleeve-blue-top": "#3d6aa8",
@@ -185,7 +171,7 @@ export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
   if (!primary) return {};
   let type = String(catalogProduct.product_type || "").toLowerCase();
   const slug = showcaseEntry.showcaseSlug;
-  if (["festive-beige-set", "floral-maxi-skirt", "bridal-golden-lehenga"].includes(slug)) {
+  if (["festive-beige-set", "floral-maxi-skirt"].includes(slug)) {
     type = "skirt";
   } else if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
     type = "pant";
