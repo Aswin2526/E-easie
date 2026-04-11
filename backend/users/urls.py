@@ -7,6 +7,7 @@ urlpatterns = [
     path('login/', views.login_user, name='login'),
     path('me/', views.me, name='me'),
     path('admin/dashboard/', views.admin_dashboard, name='admin-dashboard'),
+    path('admin/users/<int:user_id>/', views.admin_user_detail, name='admin-user-detail'),
 ]
 
 

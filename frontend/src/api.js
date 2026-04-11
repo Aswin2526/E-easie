@@ -59,6 +59,21 @@ export function fetchProduct(id) {
   return apiFetch(`/api/products/${id}/`);
 }
 
+export function fetchProductRatingSummary(productId) {
+  return apiFetch(`/api/products/${productId}/rating-summary/`);
+}
+
+export function fetchProductRatings(productId) {
+  return apiFetch(`/api/products/${productId}/ratings/`);
+}
+
+export function postProductRating(productId, { stars, comment }) {
+  return apiFetch(`/api/products/${productId}/ratings/`, {
+    method: "POST",
+    body: JSON.stringify({ stars, comment: comment ?? "" }),
+  });
+}
+
 export function saveCustomization(payload) {
   return apiFetch("/api/customizations/", {
     method: "POST",
@@ -111,6 +126,19 @@ export function fetchCurrentUser() {
 
 export function fetchAdminDashboard() {
   return apiFetch("/api/users/admin/dashboard/");
+}
+
+export function adminPatchUser(userId, isActive) {
+  return apiFetch(`/api/users/admin/users/${userId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_active: isActive }),
+  });
+}
+
+export function adminDeleteUser(userId) {
+  return apiFetch(`/api/users/admin/users/${userId}/`, {
+    method: "DELETE",
+  });
 }
 
 // Wishlist

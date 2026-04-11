@@ -12,55 +12,64 @@ from django.core.management.base import BaseCommand
 
 from shop.models import Order, Product
 
+# Prices are NPR, kept between Rs. 1,500 and Rs. 3,000 for this category.
 HOODIE_ITEMS = [
     (
         "heather-grey-oversized-pullover-hoodie",
         "Grey Pullover Hoodie",
         "Relaxed heather grey hoodie with kangaroo pocket, ribbed cuffs and hem, and dropped shoulders.",
-        "54.00",
+        "1999",
         "hoodie-heather-grey-oversized.png",
     ),
     (
         "light-grey-full-zip-hoodie",
         "Light Grey Zip Hoodie",
         "Cool-toned grey zip hoodie with split patch pockets, drawstring hood, and ribbed trims.",
-        "58.00",
+        "2699",
         "hoodie-light-grey-full-zip.png",
     ),
     (
         "black-pullover-hoodie",
         "Black Hoodie",
         "Matte black fleece pullover with drawstring hood, ribbed cuffs, and clean minimal lines.",
-        "52.00",
+        "1799",
         "hoodie-black-pullover.png",
     ),
     (
         "mint-quarter-zip-hoodie",
         "Mint Quarter-Zip",
         "Pale mint quarter-zip hoodie with kangaroo pocket, raglan sleeves, and soft fleece feel.",
-        "56.00",
+        "2399",
         "hoodie-mint-quarter-zip.png",
     ),
     (
         "taupe-cropped-zip-hoodie",
         "Taupe Cropped Zip",
         "Greige cropped full-zip hoodie with drawstring hood, split front pockets, ribbed hem, and sleeve piping.",
-        "62.00",
+        "3000",
         "hoodie-taupe-cropped-zip.png",
     ),
     (
         "rose-oversized-graphic-hoodie",
         "Pink Graphic Hoodie",
         "Soft pink oversized pullover with front graphic, kangaroo pocket, contrast drawstrings, and striped rib hem.",
-        "48.00",
+        "1500",
         "hoodie-rose-oversized-graphic.png",
     ),
     (
         "off-white-oversized-zip-hoodie",
         "Cream Zip Hoodie",
         "Cream oversized zip hoodie with dropped shoulders, roomy hood, and ribbed cuffs and hem.",
-        "56.00",
+        "2899",
         "hoodie-off-white-oversized-zip.png",
+    ),
+    (
+        "training-dept-sleeveless-hoodie-black",
+        "Training Dept. Sleeveless Hoodie — Black",
+        "Premium black muscle hoodie with TRAINING DEPT. chest branding. Sleeveless cut for range of motion, "
+        "kangaroo pocket, drawstring hood, and ribbed hem — built for gym and athletic wear.",
+        "2199",
+        "hoodie-training-dept-sleeveless-black.png",
     ),
 ]
 
@@ -89,11 +98,16 @@ class Command(BaseCommand):
         created = 0
         updated = 0
 
+        assets_dir = backend_dir.parent / "frontend" / "src" / "assets"
+
         for slug, name, description, price, filename in HOODIE_ITEMS:
             dest_path = media_products / filename
 
             if not dest_path.is_file():
-                if placeholder.is_file():
+                source_asset = assets_dir / filename
+                if source_asset.is_file():
+                    shutil.copy2(source_asset, dest_path)
+                elif placeholder.is_file():
                     shutil.copy2(placeholder, dest_path)
                     self.stdout.write(
                         self.style.WARNING(

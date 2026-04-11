@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { fetchProducts, saveCustomization, addToCart, getStoredRole, getStoredToken } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
+import ProductRatingsPanel from "../components/ProductRatingsPanel";
+import ProductStarsLine from "../components/ProductStarsLine";
 
 
 const PRIMARY_CATEGORIES = [
@@ -481,6 +483,7 @@ export default function CustomizePage() {
                   </div>
                   <div style={s.productCardBody}>
                     <span style={s.productName}>{p.name}</span>
+                    <ProductStarsLine average={p.rating_average} count={p.rating_count} />
                     <span style={s.productPrice}>{formatNPR(p.base_price)}</span>
                   </div>
                   {selected && <span style={s.selectedTag}>Selected</span>}
@@ -490,10 +493,13 @@ export default function CustomizePage() {
           </div>
         )}
         {selectedCategory && productId && selectedProduct && (
-          <p style={s.selectionSummary}>
-            Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
-            {formatNPR(selectedProduct.base_price)}
-          </p>
+          <>
+            <p style={s.selectionSummary}>
+              Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
+              {formatNPR(selectedProduct.base_price)}
+            </p>
+            <ProductRatingsPanel productId={productId} isLoggedIn={isLoggedIn} />
+          </>
         )}
       </section>
 
@@ -1093,11 +1099,13 @@ const s = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
     gap: "12px",
+    alignItems: "stretch",
   },
   productCard: {
     position: "relative",
     display: "flex",
     flexDirection: "column",
+    height: "100%",
     padding: 0,
     borderRadius: "10px",
     border: "1px solid #e5e7eb",
@@ -1122,12 +1130,31 @@ const s = {
   productThumb: { width: "100%", height: "100%", objectFit: "cover" },
   productCardBody: {
     padding: "10px 12px 12px",
+    flex: 1,
     display: "flex",
     flexDirection: "column",
     gap: "4px",
+    minHeight: 0,
   },
-  productName: { fontWeight: "700", fontSize: "14px", color: "#1a1a2e", lineHeight: 1.3 },
-  productPrice: { fontSize: "13px", color: "#4b5563" },
+  productName: {
+    fontWeight: "700",
+    fontSize: "14px",
+    color: "#1a1a2e",
+    lineHeight: 1.35,
+    minHeight: "2.7em",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    textAlign: "left",
+  },
+  productPrice: {
+    fontSize: "13px",
+    color: "#4b5563",
+    lineHeight: 1.35,
+    minHeight: "1.35em",
+    marginTop: "auto",
+  },
   selectedTag: {
     position: "absolute",
     top: "8px",

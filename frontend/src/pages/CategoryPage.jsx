@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
+import ProductStarsLine from "../components/ProductStarsLine";
 
 const CATEGORY_SELECTIONS_KEY = "categorySelections";
 
@@ -243,20 +244,23 @@ export default function CategoryPage() {
                 <div style={page.cardBody}>
                   <h3 style={page.cardTitle}>{p.name}</h3>
                   <p style={page.price}>{formatNPR(p.base_price)}</p>
-                  <Link
-                    to={customizeLink(p.product_type, p.id)}
-                    onClick={() => handleCustomizeClick(p.product_type, p.id)}
-                    style={page.cta}
-                  >
-                    Customize
-                  </Link>
-                  <div style={page.actions}>
-                    <button style={page.iconBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
-                      🛒 Add
-                    </button>
-                    <button style={page.iconBtnBuy} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
-                      Buy Now
-                    </button>
+                  <ProductStarsLine average={p.rating_average} count={p.rating_count} />
+                  <div style={page.cardActions}>
+                    <Link
+                      to={customizeLink(p.product_type, p.id)}
+                      onClick={() => handleCustomizeClick(p.product_type, p.id)}
+                      style={page.cta}
+                    >
+                      Customize
+                    </Link>
+                    <div style={page.actions}>
+                      <button style={page.iconBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
+                        🛒 Add
+                      </button>
+                      <button style={page.iconBtnBuy} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
+                        Buy Now
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -289,12 +293,16 @@ const page = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
     gap: "24px",
+    alignItems: "stretch",
   },
   card: {
     background: "#fafafa",
     borderRadius: "10px",
     overflow: "hidden",
     border: "1px solid #eee",
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
   },
   imgWrap: {
     height: "220px",
@@ -305,9 +313,37 @@ const page = {
     justifyContent: "center",
   },
   img: { width: "100%", height: "100%", objectFit: "cover" },
-  cardBody: { padding: "16px" },
-  cardTitle: { fontSize: "16px", fontWeight: "700", marginBottom: "6px" },
-  price: { color: "#444", marginBottom: "12px" },
+  cardBody: {
+    padding: "16px",
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+  },
+  cardTitle: {
+    fontSize: "16px",
+    fontWeight: "700",
+    margin: "0 0 8px 0",
+    lineHeight: 1.35,
+    minHeight: "2.7em",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
+  price: {
+    color: "#444",
+    margin: "0 0 8px 0",
+    lineHeight: 1.35,
+    minHeight: "1.35em",
+  },
+  cardActions: {
+    marginTop: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    paddingTop: "4px",
+  },
   cta: {
     display: "block",
     textAlign: "center",
@@ -318,7 +354,6 @@ const page = {
     textDecoration: "none",
     fontWeight: "600",
     fontSize: "14px",
-    marginBottom: "10px"
   },
   actions: { display: "flex", gap: "8px" },
   iconBtn: { flex: 1, padding: "8px", background: "#f0f2f5", border: "1px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" },

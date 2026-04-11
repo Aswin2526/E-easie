@@ -1,15 +1,19 @@
 from datetime import timedelta
 
+from django.db.models import Avg, Count
+
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Customization, Order, Product, Wishlist, Cart, CartItem
+from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
 from .serializers import (
     CustomizationSerializer,
     OrderCreateSerializer,
     OrderListSerializer,
+    ProductRatingListSerializer,
+    ProductRatingWriteSerializer,
     ProductSerializer,
     WishlistSerializer,
     CartSerializer,
@@ -192,7 +196,60 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """List and retrieve active catalog products."""
 
     serializer_class = ProductSerializer
-    queryset = Product.objects.filter(is_active=True)
+
+    def get_queryset(self):
+        return (
+            Product.objects.filter(is_active=True)
+            .annotate(rating_avg=Avg("ratings__stars"), rating_cnt=Count("ratings"))
+            .order_by("name")
+        )
+
+    @action(detail=True, methods=["get"], permission_classes=[AllowAny], url_path="rating-summary")
+    def rating_summary(self, request, pk=None):
+        product = self.get_object()
+        agg = ProductRating.objects.filter(product=product).aggregate(avg=Avg("stars"), cnt=Count("id"))
+        avg = agg["avg"]
+        mine = None
+        if request.user.is_authenticated:
+            r = ProductRating.objects.filter(product=product, user=request.user).first()
+            if r:
+                mine = {
+                    "stars": r.stars,
+                    "comment": r.comment,
+                    "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+                }
+        return Response(
+            {
+                "average": round(float(avg), 2) if avg is not None else None,
+                "count": int(agg["cnt"] or 0),
+                "mine": mine,
+            }
+        )
+
+    @action(detail=True, methods=["get", "post"], permission_classes=[AllowAny], url_path="ratings")
+    def ratings(self, request, pk=None):
+        product = self.get_object()
+        if request.method == "GET":
+            qs = (
+                ProductRating.objects.filter(product=product)
+                .select_related("user")
+                .order_by("-created_at")[:50]
+            )
+            return Response(ProductRatingListSerializer(qs, many=True).data)
+
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        write = ProductRatingWriteSerializer(data=request.data)
+        write.is_valid(raise_exception=True)
+        stars = write.validated_data["stars"]
+        comment = write.validated_data.get("comment") or ""
+        rating, _created = ProductRating.objects.update_or_create(
+            user=request.user,
+            product=product,
+            defaults={"stars": stars, "comment": comment},
+        )
+        return Response(ProductRatingListSerializer(rating).data, status=status.HTTP_200_OK)
 
 
 class CustomizationViewSet(viewsets.ModelViewSet):

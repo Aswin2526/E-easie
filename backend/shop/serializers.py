@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Customization, Order, Product, Wishlist, Cart, CartItem
+from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
 
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 PRESET_SIZES = {"S", "M", "L", "XL", "CUSTOM"}
@@ -11,6 +11,8 @@ PRESET_SIZES = {"S", "M", "L", "XL", "CUSTOM"}
 
 class ProductSerializer(serializers.ModelSerializer):
     product_type_display = serializers.CharField(source="get_product_type_display", read_only=True)
+    rating_average = serializers.SerializerMethodField()
+    rating_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -25,8 +27,40 @@ class ProductSerializer(serializers.ModelSerializer):
             "image",
             "is_active",
             "created_at",
+            "rating_average",
+            "rating_count",
         )
         read_only_fields = fields
+
+    def get_rating_average(self, obj):
+        v = getattr(obj, "rating_avg", None)
+        if v is None:
+            return None
+        return round(float(v), 2)
+
+    def get_rating_count(self, obj):
+        return int(getattr(obj, "rating_cnt", 0) or 0)
+
+
+class ProductRatingWriteSerializer(serializers.Serializer):
+    stars = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+
+class ProductRatingListSerializer(serializers.ModelSerializer):
+    reviewer_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductRating
+        fields = ("id", "stars", "comment", "created_at", "reviewer_name")
+
+    def get_reviewer_name(self, obj):
+        u = obj.user
+        name = (u.first_name or "").strip()
+        if name:
+            return name
+        un = (u.username or "").strip()
+        return un if un else "Customer"
 
 
 class CustomizationSerializer(serializers.ModelSerializer):

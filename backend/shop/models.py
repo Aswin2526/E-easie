@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -28,6 +28,36 @@ class Product(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.get_product_type_display()})"
+
+
+class ProductRating(models.Model):
+    """Logged-in user rates a product (1–5 stars); one rating per user per product (updated on resubmit)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="product_ratings",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="ratings",
+    )
+    stars = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="shop_productrating_user_product_uniq"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} → {self.product_id}: {self.stars}★"
 
 
 class Customization(models.Model):

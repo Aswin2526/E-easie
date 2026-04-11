@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Customization, Order, Product
+from .models import Customization, Order, Product, ProductRating
 
 
 @admin.register(Product)
@@ -16,6 +16,14 @@ class CustomizationAdmin(admin.ModelAdmin):
     list_display = ("id", "title", "product", "user", "fabric", "size", "updated_at")
     list_filter = ("fabric", "product__product_type")
     search_fields = ("title", "notes")
+    raw_id_fields = ("user", "product")
+
+
+@admin.register(ProductRating)
+class ProductRatingAdmin(admin.ModelAdmin):
+    list_display = ("id", "product", "user", "stars", "updated_at")
+    list_filter = ("stars",)
+    search_fields = ("product__name", "user__username", "user__email")
     raw_id_fields = ("user", "product")
 
 
