@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { fetchCart, removeCartItem, placeOrder } from "../api";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { fetchCart, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
@@ -9,12 +9,33 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [esewaBusy, setEsewaBusy] = useState(false);
   const [shippingAddress, setShippingAddress] = useState("");
+  const [payMsg, setPayMsg] = useState(null);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     loadCart();
   }, []);
+
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    if (!payment) return;
+    const labels = {
+      failed: "eSewa payment was cancelled or did not complete.",
+      invalid_signature: "Payment verification failed (signature). Contact support if money was debited.",
+      missing_data: "Payment response was incomplete. Try again or contact support.",
+      not_complete: "Payment was not completed.",
+      no_uuid: "Payment reference missing. Contact support if money was debited.",
+      session_expired: "Payment session expired. If you were charged, contact support with your eSewa receipt.",
+      bad_amount: "Payment amount mismatch.",
+      amount_mismatch: "Payment amount did not match your order total.",
+      status_check_failed: "Could not confirm payment with eSewa. Try again later or contact support.",
+    };
+    setPayMsg(labels[payment] || `Payment: ${payment.replace(/_/g, " ")}`);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   async function loadCart() {
     setLoading(true);
@@ -77,6 +98,29 @@ export default function CartPage() {
     }
   }
 
+  async function handleEsewaCheckout(e) {
+    e.preventDefault();
+    if (!cart || !cart.items || cart.items.length === 0) return;
+    if (!shippingAddress.trim()) {
+      alert("Please provide a shipping address.");
+      return;
+    }
+    setEsewaBusy(true);
+    try {
+      const res = await checkoutCartWithEsewa(shippingAddress.trim());
+      window.dispatchEvent(new Event("cart-updated"));
+      if (res?.epay_url && res?.fields) {
+        submitEsewaPaymentForm(res.epay_url, res.fields);
+        return;
+      }
+      alert("eSewa payment could not be started. Missing gateway data.");
+    } catch (err) {
+      alert(err.message || "eSewa checkout failed.");
+    } finally {
+      setEsewaBusy(false);
+    }
+  }
+
   if (loading) return <div style={s.centered}>Loading Cart...</div>;
   if (error) return <div style={s.centered}><p style={{color:"red"}}>{error}</p></div>;
 
@@ -86,6 +130,11 @@ export default function CartPage() {
   return (
     <div style={s.wrap}>
       <h1 style={s.title}>Shopping Cart</h1>
+      {payMsg ? (
+        <p style={s.payWarn} role="alert">
+          {payMsg}
+        </p>
+      ) : null}
       {items.length === 0 ? (
         <p style={{ marginTop: 20 }}>Your cart is empty. <Link to="/category">Browse Products</Link></p>
       ) : (
@@ -139,9 +188,18 @@ export default function CartPage() {
                   placeholder="Enter your full address"
                 />
               </label>
-              <button disabled={checkingOut} style={s.checkoutBtn} type="submit">
-                {checkingOut ? "Processing..." : "Proceed to Checkout"}
+              <button disabled={checkingOut || esewaBusy} style={s.checkoutBtn} type="submit">
+                {checkingOut ? "Processing..." : "Place order"}
               </button>
+              <button
+                type="button"
+                disabled={checkingOut || esewaBusy}
+                style={s.esewaBtn}
+                onClick={handleEsewaCheckout}
+              >
+                {esewaBusy ? "Starting eSewa…" : "Pay with eSewa"}
+              </button>
+              <p style={s.payHint}>eSewa opens in a secure window. Test wallet: 9806800001 / Nepal@123 (token 123456).</p>
             </form>
           </div>
         </div>
@@ -174,4 +232,27 @@ const s = {
   label: { display: "block", fontSize: "14px", fontWeight: "bold", marginBottom: "12px" },
   textarea: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ccc", minHeight: "80px", marginTop: "6px", boxSizing: "border-box", fontFamily: "inherit" },
   checkoutBtn: { width: "100%", background: "#1a1a2e", color: "#fff", border: "none", padding: "14px", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "16px" },
+  esewaBtn: {
+    width: "100%",
+    background: "#60bb46",
+    color: "#fff",
+    border: "none",
+    padding: "14px",
+    borderRadius: "6px",
+    fontSize: "16px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    marginTop: "12px",
+  },
+  payHint: { fontSize: "12px", color: "#666", marginTop: "12px", lineHeight: 1.4, marginBottom: 0 },
+  payWarn: {
+    padding: "12px 14px",
+    background: "#fef3c7",
+    border: "1px solid #fcd34d",
+    borderRadius: "8px",
+    color: "#92400e",
+    fontSize: "14px",
+    marginBottom: "16px",
+    lineHeight: 1.45,
+  },
 };

@@ -1,13 +1,26 @@
+import uuid
 from datetime import timedelta
+from decimal import Decimal
 
+from django.conf import settings
+from django.core.cache import cache
+from django.db import transaction
 from django.db.models import Avg, Count
-
+from django.shortcuts import redirect
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
+from .esewa import (
+    decode_callback_data,
+    fetch_transaction_status,
+    format_money,
+    sign_payment_request,
+    verify_payment_response,
+)
 from .serializers import (
     CustomizationSerializer,
     OrderCreateSerializer,
@@ -41,7 +54,6 @@ def _safe_design_image_url(request, order):
         return request.build_absolute_uri(img.url)
     except Exception:
         return None
-
 
 def _build_order_tracking_payload(request, order):
     customization = order.customization
@@ -190,6 +202,149 @@ def _get_authorized_order(request, order_id, email):
     if not email or (order.guest_email or "").lower() != email:
         return None, Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
     return order, None
+
+
+def esewa_success(request):
+    """eSewa redirects here with ?data=<base64 json>. Verify signature and mark orders confirmed."""
+    payload = decode_callback_data(request.GET.get("data") or "")
+    if not payload:
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=missing_data")
+
+    if settings.ESEWA_VERIFY_RESPONSE_SIGNATURE and not verify_payment_response(
+        payload, settings.ESEWA_SECRET_KEY
+    ):
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=invalid_signature")
+
+    if str(payload.get("status", "")).upper() != "COMPLETE":
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=not_complete")
+
+    transaction_uuid = str(payload.get("transaction_uuid") or "").strip()
+    if not transaction_uuid:
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=no_uuid")
+
+    session = cache.get(f"esewa_pay:{transaction_uuid}")
+    if not session:
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=session_expired")
+
+    try:
+        reported_total = Decimal(str(payload.get("total_amount")))
+    except Exception:
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=bad_amount")
+
+    if Decimal(session["total_amount"]) != reported_total:
+        return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=amount_mismatch")
+
+    if settings.ESEWA_VERIFY_STATUS:
+        remote = fetch_transaction_status(
+            status_url=settings.ESEWA_STATUS_URL,
+            product_code=settings.ESEWA_PRODUCT_CODE,
+            total_amount=format_money(reported_total),
+            transaction_uuid=transaction_uuid,
+        )
+        if remote is not None and str(remote.get("status", "")).upper() not in ("COMPLETE",):
+            return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=status_check_failed")
+
+    order_ids = session.get("order_ids") or []
+    user_id = session.get("user_id")
+    Order.objects.filter(
+        id__in=order_ids,
+        user_id=user_id,
+        status=Order.Status.PENDING,
+    ).update(status=Order.Status.CONFIRMED)
+    cache.delete(f"esewa_pay:{transaction_uuid}")
+
+    cache.set(
+        f"esewa_receipt:{transaction_uuid}",
+        {
+            "user_id": user_id,
+            "order_ids": order_ids,
+            "merchant_code": settings.ESEWA_PRODUCT_CODE,
+            "transaction_code": str(payload.get("transaction_code") or ""),
+            "amount_paid": format_money(reported_total),
+            "paid_at_iso": timezone.now().isoformat(),
+        },
+        timeout=900,
+    )
+
+    return redirect(f"{settings.FRONTEND_ORIGIN}/payment-receipt?ref={transaction_uuid}")
+
+
+def esewa_failure(request):
+    return redirect(f"{settings.FRONTEND_ORIGIN}/cart?payment=failed")
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def payment_receipt(request):
+    """Return eSewa payment receipt JSON after success (ref = eSewa transaction_uuid, short-lived cache)."""
+    ref = (request.query_params.get("ref") or "").strip()
+    if not ref:
+        return Response(
+            {"detail": "Query parameter 'ref' is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    meta = cache.get(f"esewa_receipt:{ref}")
+    if not meta or meta.get("user_id") != request.user.id:
+        return Response(
+            {"detail": "Receipt not found or expired. Open Track order for your orders."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    orders = list(
+        Order.objects.filter(id__in=meta["order_ids"], user=request.user)
+        .select_related("user", "customization", "customization__product")
+        .order_by("id")
+    )
+    if not orders:
+        return Response({"detail": "Receipt not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    first = orders[0]
+    u = first.user
+    if u:
+        customer_name = (u.first_name or "").strip() or (u.username or "").strip() or u.email or "Customer"
+    else:
+        customer_name = "Customer"
+
+    shipping = (first.shipping_address or "").strip()
+    if not shipping:
+        shipping = "Not provided at checkout"
+
+    placed_min = min(o.placed_at for o in orders)
+    items = []
+    for o in orders:
+        prod = o.customization.product
+        items.append(
+            {
+                "product": prod.name,
+                "qty": o.quantity,
+                "unit": str(o.unit_price),
+                "line_total": str(o.total_price),
+            }
+        )
+
+    order_numbers = [o.id for o in orders]
+    primary = first.id
+
+    return Response(
+        {
+            "brand": "E-easie",
+            "subtitle": "E-easie · Paid via eSewa",
+            "title": "E-easie Payment Receipt",
+            "order_numbers": order_numbers,
+            "primary_order_id": primary,
+            "merchant_code": meta.get("merchant_code") or settings.ESEWA_PRODUCT_CODE,
+            "payment_status": "COMPLETE",
+            "amount_paid": meta.get("amount_paid"),
+            "paid_at": meta.get("paid_at_iso"),
+            "customer_name": customer_name,
+            "shipping_address": shipping,
+            "order_placed": placed_min.isoformat(),
+            "items": items,
+            "transaction_code": meta.get("transaction_code") or "",
+            "transaction_uuid": ref,
+        }
+    )
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
@@ -358,6 +513,76 @@ class CartViewSet(viewsets.ViewSet):
     def current(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         return Response(CartSerializer(cart, context={"request": request}).data)
+
+    @action(detail=False, methods=["post"], url_path="esewa-checkout")
+    def esewa_checkout(self, request):
+        """Create orders from cart, return signed eSewa form fields (client POSTs to epay_url)."""
+        shipping_address = (request.data.get("shipping_address") or "").strip()
+        if not shipping_address:
+            return Response({"detail": "shipping_address is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        items = list(cart.items.select_related("product", "customization"))
+        if not items:
+            return Response({"detail": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        orders = []
+        with transaction.atomic():
+            for item in items:
+                payload = {"quantity": item.quantity, "shipping_address": shipping_address}
+                if item.customization_id:
+                    payload["customization"] = item.customization_id
+                else:
+                    payload["product"] = item.product_id
+                ser = OrderCreateSerializer(data=payload, context={"request": request})
+                ser.is_valid(raise_exception=True)
+                ser.save()
+                orders.append(ser.instance)
+                item.delete()
+
+        total = sum(Decimal(str(o.total_price)) for o in orders)
+        total_str = format_money(total)
+        transaction_uuid = str(uuid.uuid4())
+        signature = sign_payment_request(
+            total_str,
+            transaction_uuid,
+            settings.ESEWA_PRODUCT_CODE,
+            settings.ESEWA_SECRET_KEY,
+        )
+
+        success_url = f"{settings.PUBLIC_BACKEND_BASE}/esewa/success/"
+        failure_url = f"{settings.PUBLIC_BACKEND_BASE}/esewa/failure/"
+        cache.set(
+            f"esewa_pay:{transaction_uuid}",
+            {
+                "order_ids": [o.id for o in orders],
+                "user_id": request.user.id,
+                "total_amount": total_str,
+            },
+            timeout=3600,
+        )
+
+        fields = {
+            "amount": total_str,
+            "tax_amount": "0",
+            "total_amount": total_str,
+            "transaction_uuid": transaction_uuid,
+            "product_code": settings.ESEWA_PRODUCT_CODE,
+            "product_service_charge": "0",
+            "product_delivery_charge": "0",
+            "success_url": success_url,
+            "failure_url": failure_url,
+            "signed_field_names": "total_amount,transaction_uuid,product_code",
+            "signature": signature,
+        }
+        return Response(
+            {
+                "epay_url": settings.ESEWA_EPAY_URL,
+                "fields": fields,
+                "order_ids": [o.id for o in orders],
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["post"])
     def clear(self, request):

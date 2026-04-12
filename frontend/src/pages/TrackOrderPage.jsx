@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchTrackedOrders, getStoredToken, trackOrder } from "../api";
 import { formatNPR } from "../currency";
 
@@ -9,6 +10,7 @@ const STATUS_COLORS = {
 };
 
 export default function TrackOrderPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const loggedIn = Boolean(getStoredToken());
   const [orderId, setOrderId] = useState("");
   const [email, setEmail] = useState("");
@@ -19,6 +21,48 @@ export default function TrackOrderPage() {
   const [copyFeedback, setCopyFeedback] = useState("");
   const [designDecision, setDesignDecision] = useState("");
   const [revisionText, setRevisionText] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
+
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    if (!payment) return;
+
+    if (payment === "success") {
+      setPaymentNotice("eSewa payment completed. Your order(s) are confirmed.");
+    } else if (payment === "failed") {
+      setPaymentNotice("Payment was cancelled or did not complete.");
+    } else {
+      setPaymentNotice(`Payment notice: ${payment.replace(/_/g, " ")}`);
+    }
+
+    const oid = searchParams.get("order");
+    const next = new URLSearchParams(searchParams);
+    next.delete("payment");
+    next.delete("order");
+    next.delete("updated");
+    setSearchParams(next, { replace: true });
+
+    if (!loggedIn || payment !== "success") return;
+
+    setLoading(true);
+    fetchTrackedOrders()
+      .then((data) => {
+        const loaded = Array.isArray(data?.orders) ? data.orders : [];
+        setOrders(loaded);
+        if (oid) {
+          const found = loaded.find((o) => String(o.order_id) === oid);
+          if (found) {
+            setResult(found);
+            setOrderId(String(found.order_id));
+          }
+        } else if (loaded.length > 0) {
+          setResult(loaded[0]);
+          setOrderId(String(loaded[0].order_id));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [loggedIn, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!loggedIn) return;
@@ -235,6 +279,8 @@ export default function TrackOrderPage() {
         </button>
       </form>
 
+      {paymentNotice ? <p style={s.notice}>{paymentNotice}</p> : null}
+
       {error && <p style={s.err}>{error}</p>}
 
       {loggedIn && orders.length > 0 ? (
@@ -421,6 +467,16 @@ const s = {
     borderRadius: "8px",
     fontWeight: "700",
     cursor: "pointer",
+  },
+  notice: {
+    marginTop: "16px",
+    padding: "12px 14px",
+    background: "#ecfdf5",
+    border: "1px solid #6ee7b7",
+    borderRadius: "8px",
+    color: "#065f46",
+    fontSize: "15px",
+    lineHeight: 1.45,
   },
   err: { marginTop: "16px", color: "#b91c1c", fontSize: "15px" },
   quickList: { marginTop: "20px", display: "flex", flexWrap: "wrap", gap: "10px" },

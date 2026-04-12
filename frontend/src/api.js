@@ -88,6 +88,31 @@ export function placeOrder(payload) {
   });
 }
 
+/** Create orders from cart and return eSewa signed fields; caller should POST form to epay_url. */
+export function checkoutCartWithEsewa(shippingAddress) {
+  return apiFetch("/api/cart/esewa-checkout/", {
+    method: "POST",
+    body: JSON.stringify({ shipping_address: shippingAddress }),
+  });
+}
+
+/** Browser-only: POST redirect to eSewa (cannot use fetch due to CORS). */
+export function submitEsewaPaymentForm(epayUrl, fields) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = epayUrl;
+  form.acceptCharset = "UTF-8";
+  for (const [name, value] of Object.entries(fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = String(value ?? "");
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
+}
+
 export function trackOrder(orderId, email) {
   const q = new URLSearchParams({ order_number: String(orderId) });
   if (email) q.set("email", email);
@@ -126,6 +151,22 @@ export function fetchCurrentUser() {
 
 export function fetchAdminDashboard() {
   return apiFetch("/api/users/admin/dashboard/");
+}
+
+export function fetchAdminUsers() {
+  return apiFetch("/api/users/admin/users/");
+}
+
+export function fetchAdminOrders() {
+  return apiFetch("/api/users/admin/orders/");
+}
+
+export function fetchAdminProductsCatalog() {
+  return apiFetch("/api/users/admin/products/");
+}
+
+export function fetchAdminReport() {
+  return apiFetch("/api/users/admin/report/");
 }
 
 export function adminPatchUser(userId, isActive) {

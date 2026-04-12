@@ -19,6 +19,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
+from shop import views as shop_views
 
 
 def home(request):
@@ -30,6 +31,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("users.urls")),
     path("api/", include("shop.urls")),
+    path('esewa/success/', shop_views.esewa_success, name='esewa_success'),
+    path('esewa/failure/', shop_views.esewa_failure, name='esewa_failure'),
 ]
 
 if settings.DEBUG:

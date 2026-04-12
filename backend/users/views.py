@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.db import transaction
+from django.db.models import Count, Sum
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
@@ -89,21 +92,7 @@ def admin_dashboard(request):
         "customizations": Customization.objects.count(),
     }
 
-    # Customers only — staff accounts are managed outside this list.
-    recent_users_qs = User.objects.filter(is_staff=False).order_by("-date_joined")[:50]
-    recent_users = [
-        {
-            "id": u.id,
-            "name": (u.first_name or u.username),
-            "email": u.email,
-            "role": "admin" if u.is_staff else "user",
-            "is_staff": u.is_staff,
-            "is_superuser": u.is_superuser,
-            "is_active": u.is_active,
-            "date_joined": u.date_joined,
-        }
-        for u in recent_users_qs
-    ]
+    recent_users = _recent_users_payload()
 
     recent_orders_qs = Order.objects.select_related("user", "customization", "customization__product").order_by(
         "-placed_at"
@@ -126,6 +115,166 @@ def admin_dashboard(request):
             "totals": totals,
             "recent_users": recent_users,
             "recent_orders": recent_orders,
+        }
+    )
+
+
+def _recent_users_payload():
+    recent_users_qs = User.objects.filter(is_staff=False).order_by("-date_joined")[:50]
+    return [
+        {
+            "id": u.id,
+            "name": (u.first_name or u.username),
+            "email": u.email,
+            "role": "admin" if u.is_staff else "user",
+            "is_staff": u.is_staff,
+            "is_superuser": u.is_superuser,
+            "is_active": u.is_active,
+            "date_joined": u.date_joined,
+        }
+        for u in recent_users_qs
+    ]
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_users_list(request):
+    if not request.user.is_staff:
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+    return Response({"users": _recent_users_payload()})
+
+
+def _payment_fields(order):
+    """Align with customer track-order payment display (shop/views.py)."""
+    st = order.status
+    if st == Order.Status.CANCELLED:
+        return {
+            "payment_status": "Cancelled",
+            "paid_amount": Decimal("0"),
+            "balance_due": order.total_price,
+        }
+    if st == Order.Status.PENDING:
+        return {
+            "payment_status": "Pending",
+            "paid_amount": Decimal("0"),
+            "balance_due": order.total_price,
+        }
+    if st == Order.Status.SHIPPED:
+        return {
+            "payment_status": "Paid",
+            "paid_amount": order.total_price,
+            "balance_due": Decimal("0"),
+        }
+    # confirmed
+    half = order.total_price / Decimal(2)
+    return {
+        "payment_status": "Partially paid",
+        "paid_amount": half,
+        "balance_due": order.total_price - half,
+    }
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_orders_list(request):
+    if not request.user.is_staff:
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    recent_orders_qs = Order.objects.select_related("user", "customization", "customization__product").order_by(
+        "-placed_at"
+    )[:200]
+    orders = []
+    for o in recent_orders_qs:
+        pf = _payment_fields(o)
+        customer = (o.user.first_name or o.user.username) if o.user else (o.guest_email or "Guest")
+        orders.append(
+            {
+                "id": o.id,
+                "customer": customer,
+                "customer_email": (o.user.email if o.user else o.guest_email) or "",
+                "product": o.customization.product.name,
+                "status": o.status,
+                "quantity": o.quantity,
+                "unit_price": str(o.unit_price),
+                "total_price": str(o.total_price),
+                "placed_at": o.placed_at,
+                "payment_status": pf["payment_status"],
+                "paid_amount": str(pf["paid_amount"]),
+                "balance_due": str(pf["balance_due"]),
+            }
+        )
+    return Response({"orders": orders})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_products_list(request):
+    if not request.user.is_staff:
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    products = []
+    for p in Product.objects.all().order_by("name"):
+        image_url = None
+        if p.image and p.image.name:
+            try:
+                image_url = request.build_absolute_uri(p.image.url)
+            except Exception:
+                image_url = None
+        products.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "slug": p.slug,
+                "product_type": p.product_type,
+                "base_price": str(p.base_price),
+                "is_active": p.is_active,
+                "image": image_url,
+                "created_at": p.created_at,
+            }
+        )
+    return Response({"products": products})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_report(request):
+    if not request.user.is_staff:
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    orders_by_status = list(
+        Order.objects.values("status").annotate(count=Count("id"), revenue=Sum("total_price")).order_by("status")
+    )
+    for row in orders_by_status:
+        if row.get("revenue") is not None:
+            row["revenue"] = str(row["revenue"])
+
+    top_products = list(
+        Order.objects.values(
+            "customization__product_id",
+            "customization__product__name",
+        )
+        .annotate(order_count=Count("id"), revenue=Sum("total_price"))
+        .order_by("-revenue")[:12]
+    )
+    for row in top_products:
+        if row.get("revenue") is not None:
+            row["revenue"] = str(row["revenue"])
+
+    agg = Order.objects.aggregate(
+        order_count=Count("id"),
+        revenue_sum=Sum("total_price"),
+    )
+    return Response(
+        {
+            "summary": {
+                "total_orders": agg["order_count"] or 0,
+                "total_revenue": str(agg["revenue_sum"] or Decimal("0")),
+                "active_products": Product.objects.filter(is_active=True).count(),
+                "catalog_products": Product.objects.count(),
+                "registered_users": User.objects.filter(is_staff=False).count(),
+            },
+            "orders_by_status": orders_by_status,
+            "top_products": top_products,
         }
     )
 

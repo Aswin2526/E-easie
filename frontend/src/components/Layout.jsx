@@ -5,11 +5,12 @@ import Footer from "./Footer";
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const showFooter = !pathname.startsWith("/admin");
+  const showFooter = !pathname.startsWith("/admin") && !pathname.startsWith("/payment-receipt");
+  const showStoreNav = !pathname.startsWith("/admin");
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff" }}>
-      <Navbar />
+      {showStoreNav ? <Navbar /> : null}
       <Outlet />
       {showFooter ? <Footer /> : null}
     </div>

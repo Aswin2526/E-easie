@@ -12,6 +12,7 @@ router.register(r"cart/items", views.CartItemViewSet, basename="cart-items")
 router.register(r"cart", views.CartViewSet, basename="cart")
 
 urlpatterns = [
+    path("payment-receipt/", views.payment_receipt, name="payment-receipt"),
     path("", include(router.urls)),
     path("track-order", views.track_order_view, name="track-order"),
 ]

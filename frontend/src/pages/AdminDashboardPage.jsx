@@ -1,16 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { adminDeleteUser, adminPatchUser, fetchAdminDashboard, fetchCurrentUser } from "../api";
+import React, { useEffect, useMemo, useState } from "react";
+import { fetchAdminDashboard } from "../api";
 import { formatNPR } from "../currency";
-
-function apiErrorMessage(err, fallback) {
-  const d = err?.data;
-  if (typeof d === "object" && d && d.detail) return String(d.detail);
-  if (typeof d === "object" && d) {
-    const first = Object.values(d)[0];
-    if (Array.isArray(first) && first[0]) return String(first[0]);
-  }
-  return err?.message || fallback;
-}
+import { apiErrorMessage } from "../admin/adminUtils";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -26,41 +17,23 @@ function timeAgo(iso) {
     return `${h} hour${h === 1 ? "" : "s"} ago`;
   }
   if (s < 604800) {
-    const d = Math.floor(s / 86400);
-    return `${d} day${d === 1 ? "" : "s"} ago`;
+    const days = Math.floor(s / 86400);
+    return `${days} day${days === 1 ? "" : "s"} ago`;
   }
   return d.toLocaleDateString();
-}
-
-function formatDateTime(value) {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  return d.toLocaleString();
 }
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
-  const [me, setMe] = useState(null);
-  const [userActionBusyId, setUserActionBusyId] = useState(null);
-  const [userActionMessage, setUserActionMessage] = useState(null);
-
-  const refreshDashboard = useCallback(async () => {
-    const response = await fetchAdminDashboard();
-    setData(response);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [dash, profile] = await Promise.all([fetchAdminDashboard(), fetchCurrentUser()]);
-        if (!cancelled) {
-          setData(dash);
-          setMe(profile);
-        }
+        const dash = await fetchAdminDashboard();
+        if (!cancelled) setData(dash);
       } catch (err) {
         const message = apiErrorMessage(err, "Failed to load dashboard.");
         if (!cancelled) setError(message);
@@ -135,48 +108,9 @@ export default function AdminDashboardPage() {
     return Math.min(100, Math.round((totalRevenue / goal) * 100));
   }, [totalRevenue]);
 
-  const myId = me?.id;
-  const amSuperuser = Boolean(me?.is_superuser);
-
-  const handleToggleBlock = async (u) => {
-    if (userActionBusyId != null) return;
-    const next = !u.is_active;
-    if (!next && u.is_superuser) return;
-    setUserActionMessage(null);
-    setUserActionBusyId(u.id);
-    try {
-      await adminPatchUser(u.id, next);
-      await refreshDashboard();
-      setUserActionMessage(next ? `Unblocked ${u.name || u.email}.` : `Blocked ${u.name || u.email}.`);
-    } catch (err) {
-      setUserActionMessage(apiErrorMessage(err, "Could not update user."));
-    } finally {
-      setUserActionBusyId(null);
-    }
-  };
-
-  const handleDeleteUser = async (u) => {
-    if (userActionBusyId != null) return;
-    const ok = window.confirm(
-      `Permanently delete user "${u.name || u.email}"? Their wishlist and cart will be removed. Orders stay on record without this account.`,
-    );
-    if (!ok) return;
-    setUserActionMessage(null);
-    setUserActionBusyId(u.id);
-    try {
-      await adminDeleteUser(u.id);
-      await refreshDashboard();
-      setUserActionMessage(`Deleted ${u.name || u.email}.`);
-    } catch (err) {
-      setUserActionMessage(apiErrorMessage(err, "Could not delete user."));
-    } finally {
-      setUserActionBusyId(null);
-    }
-  };
-
   if (loading) {
     return (
-      <main style={styles.page}>
+      <main style={styles.contentInner}>
         <p style={styles.muted}>Loading dashboard…</p>
       </main>
     );
@@ -184,9 +118,9 @@ export default function AdminDashboardPage() {
 
   if (error) {
     return (
-      <main style={styles.page}>
+      <main style={styles.contentInner}>
         <section style={styles.panel}>
-          <h1 style={styles.heading}>Admin</h1>
+          <h2 style={styles.heading}>Admin</h2>
           <p style={styles.error}>{error}</p>
         </section>
       </main>
@@ -194,18 +128,7 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <main style={styles.page}>
-      <style>{`
-        @media (max-width: 900px) {
-          .admin-dashboard-main-grid {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
-      <header style={styles.topBar}>
-        <span style={styles.brand}>E-easie Admin</span>
-      </header>
-
+    <main style={styles.contentInner}>
       <div style={styles.summaryRow}>
         <article style={styles.statCard}>
           <div style={{ ...styles.statIconWrap, background: "#dcfce7" }}>
@@ -315,133 +238,20 @@ export default function AdminDashboardPage() {
           </div>
         </aside>
       </div>
-
-      <div style={styles.tablesWrap}>
-        <section style={styles.tableCard}>
-          <h2 style={styles.tableTitle}>Users</h2>
-          <p style={styles.tableHint}>
-            Customer accounts only (up to 50 recent). Staff are not listed here. Blocked users cannot sign in until
-            unblocked.
-          </p>
-          {userActionMessage ? <p style={styles.userActionBanner}>{userActionMessage}</p> : null}
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Role</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Joined</th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.recent_users || []).map((u) => {
-                const isSelf = myId != null && u.id === myId;
-                const busy = userActionBusyId === u.id;
-                const canBlock = !isSelf && !u.is_superuser;
-                const canDelete =
-                  !isSelf && !u.is_superuser && (!u.is_staff || amSuperuser);
-                return (
-                  <tr key={u.id} style={u.is_active === false ? styles.rowInactive : undefined}>
-                    <td style={styles.td}>{u.name}</td>
-                    <td style={styles.td}>{u.email || "-"}</td>
-                    <td style={styles.td}>{u.role}</td>
-                    <td style={styles.td}>
-                      {u.is_active === false ? (
-                        <span style={styles.statusBlocked}>Blocked</span>
-                      ) : (
-                        <span style={styles.statusActive}>Active</span>
-                      )}
-                    </td>
-                    <td style={styles.td}>{formatDateTime(u.date_joined)}</td>
-                    <td style={styles.tdActions}>
-                      <div style={styles.actionBtns}>
-                        {canBlock ? (
-                          <button
-                            type="button"
-                            style={u.is_active ? styles.btnWarn : styles.btnSecondary}
-                            disabled={busy}
-                            onClick={() => handleToggleBlock(u)}
-                          >
-                            {busy ? "…" : u.is_active ? "Block" : "Unblock"}
-                          </button>
-                        ) : null}
-                        {canDelete ? (
-                          <button
-                            type="button"
-                            style={styles.btnDanger}
-                            disabled={busy}
-                            onClick={() => handleDeleteUser(u)}
-                          >
-                            Delete
-                          </button>
-                        ) : null}
-                        {!canBlock && !canDelete && !isSelf ? (
-                          <span style={styles.actionMuted}>—</span>
-                        ) : null}
-                        {isSelf ? <span style={styles.actionMuted}>You</span> : null}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </section>
-
-        <section style={styles.tableCard}>
-          <h2 style={styles.tableTitle}>Recent orders</h2>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Order</th>
-                <th style={styles.th}>Customer</th>
-                <th style={styles.th}>Product</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Total</th>
-                <th style={styles.th}>Placed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map((o) => (
-                <tr key={o.id}>
-                  <td style={styles.td}>#{o.id}</td>
-                  <td style={styles.td}>{o.customer}</td>
-                  <td style={styles.td}>{o.product}</td>
-                  <td style={styles.td}>{o.status}</td>
-                  <td style={styles.td}>{formatNPR(o.total_price)}</td>
-                  <td style={styles.td}>{formatDateTime(o.placed_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
     </main>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: "calc(100vh - 84px)",
-    background: "#f4f6fb",
+  contentInner: {
     padding: "24px 28px 40px",
     maxWidth: "1280px",
     margin: "0 auto",
+    width: "100%",
     boxSizing: "border-box",
   },
-  muted: { color: "#51607a", padding: "24px" },
-  topBar: {
-    marginBottom: "20px",
-  },
-  brand: {
-    fontSize: "15px",
-    fontWeight: 700,
-    color: "#64748b",
-    letterSpacing: "0.02em",
-  },
-  heading: { margin: 0, color: "#1a1a2e", fontSize: "24px" },
+  muted: { color: "#51607a", padding: "8px 0" },
+  heading: { margin: "0 0 8px", color: "#1a1a2e", fontSize: "20px" },
   error: { marginTop: "12px", color: "#b91c1c", fontSize: "15px" },
   panel: {
     background: "#fff",
@@ -661,113 +471,5 @@ const styles = {
     height: "100%",
     background: "linear-gradient(90deg, #2563eb, #3b82f6)",
     borderRadius: "999px",
-  },
-  tablesWrap: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "16px",
-  },
-  tableCard: {
-    border: "1px solid #e6e8f0",
-    borderRadius: "14px",
-    overflowX: "auto",
-    background: "#fff",
-    boxShadow: "0 8px 24px rgba(26, 26, 46, 0.04)",
-  },
-  tableTitle: {
-    margin: 0,
-    padding: "16px 16px 0",
-    color: "#1a1a2e",
-    fontSize: "16px",
-    fontWeight: 800,
-  },
-  tableHint: {
-    margin: "6px 0 0",
-    padding: "0 16px",
-    fontSize: "12px",
-    color: "#64748b",
-    lineHeight: 1.4,
-  },
-  userActionBanner: {
-    margin: "10px 16px 0",
-    padding: "8px 12px",
-    fontSize: "13px",
-    color: "#1e40af",
-    background: "#eff6ff",
-    borderRadius: "8px",
-    border: "1px solid #bfdbfe",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    marginTop: "10px",
-  },
-  th: {
-    textAlign: "left",
-    fontSize: "12px",
-    color: "#5e6880",
-    borderBottom: "1px solid #e6e8f0",
-    padding: "10px 14px",
-    whiteSpace: "nowrap",
-  },
-  td: {
-    textAlign: "left",
-    fontSize: "13px",
-    color: "#1c2438",
-    borderBottom: "1px solid #eef1f8",
-    padding: "10px 14px",
-    whiteSpace: "nowrap",
-  },
-  tdActions: {
-    textAlign: "left",
-    fontSize: "13px",
-    color: "#1c2438",
-    borderBottom: "1px solid #eef1f8",
-    padding: "10px 14px",
-    verticalAlign: "middle",
-    whiteSpace: "normal",
-  },
-  rowInactive: { opacity: 0.85 },
-  statusActive: {
-    fontSize: "12px",
-    fontWeight: 700,
-    color: "#15803d",
-  },
-  statusBlocked: {
-    fontSize: "12px",
-    fontWeight: 700,
-    color: "#b91c1c",
-  },
-  actionBtns: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" },
-  actionMuted: { fontSize: "12px", color: "#94a3b8" },
-  btnSecondary: {
-    fontSize: "12px",
-    fontWeight: 700,
-    padding: "6px 12px",
-    borderRadius: "8px",
-    border: "1px solid #cbd5e1",
-    background: "#fff",
-    color: "#334155",
-    cursor: "pointer",
-  },
-  btnWarn: {
-    fontSize: "12px",
-    fontWeight: 700,
-    padding: "6px 12px",
-    borderRadius: "8px",
-    border: "1px solid #fcd34d",
-    background: "#fffbeb",
-    color: "#b45309",
-    cursor: "pointer",
-  },
-  btnDanger: {
-    fontSize: "12px",
-    fontWeight: 700,
-    padding: "6px 12px",
-    borderRadius: "8px",
-    border: "1px solid #fecaca",
-    background: "#fef2f2",
-    color: "#b91c1c",
-    cursor: "pointer",
   },
 };

@@ -173,3 +173,31 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+# eSewa ePay v2 (UAT defaults — override in .env for production)
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/")
+PUBLIC_BACKEND_BASE = os.environ.get("PUBLIC_BACKEND_BASE", "http://127.0.0.1:8000").rstrip("/")
+ESEWA_PRODUCT_CODE = os.environ.get("ESEWA_PRODUCT_CODE", "EPAYTEST")
+ESEWA_SECRET_KEY = os.environ.get("ESEWA_SECRET_KEY", "8gBm/:&EnhH.1/q")
+ESEWA_EPAY_URL = os.environ.get(
+    "ESEWA_EPAY_URL",
+    "https://rc-epay.esewa.com.np/api/epay/main/v2/form",
+)
+ESEWA_STATUS_URL = os.environ.get(
+    "ESEWA_STATUS_URL",
+    "https://rc.esewa.com.np/api/epay/transaction/status/",
+)
+# Optional server-side enquiry after redirect; disable if it blocks valid payments (wrong RC URL/firewall).
+ESEWA_VERIFY_STATUS = os.environ.get("ESEWA_VERIFY_STATUS", "0").lower() in ("1", "true", "yes")
+ESEWA_VERIFY_RESPONSE_SIGNATURE = os.environ.get("ESEWA_VERIFY_RESPONSE_SIGNATURE", "1").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "eeasie-esewa",
+    }
+}
+
