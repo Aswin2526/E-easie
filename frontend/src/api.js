@@ -97,6 +97,11 @@ export function checkoutCartWithEsewa(shippingAddress) {
 }
 
 /** Browser-only: POST redirect to eSewa (cannot use fetch due to CORS). */
+export function fetchPaymentReceipt(ref) {
+  const q = new URLSearchParams({ ref: String(ref) });
+  return apiFetch(`/api/payment-receipt/?${q.toString()}`);
+}
+
 export function submitEsewaPaymentForm(epayUrl, fields) {
   const form = document.createElement("form");
   form.method = "POST";
@@ -211,6 +216,13 @@ export function addToCart({ product, customization, quantity }) {
   return apiFetch("/api/cart/items/", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function patchCartItem(itemId, body) {
+  return apiFetch(`/api/cart/items/${itemId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
   });
 }
 

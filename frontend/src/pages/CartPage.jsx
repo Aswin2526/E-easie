@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { fetchCart, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
+import { fetchCart, patchCartItem, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 
@@ -12,6 +12,7 @@ export default function CartPage() {
   const [esewaBusy, setEsewaBusy] = useState(false);
   const [shippingAddress, setShippingAddress] = useState("");
   const [payMsg, setPayMsg] = useState(null);
+  const [qtyBusyId, setQtyBusyId] = useState(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -47,6 +48,21 @@ export default function CartPage() {
       setError(err.message || "Failed to load cart");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function changeCartItemQuantity(item, delta) {
+    const next = Math.min(99, Math.max(1, item.quantity + delta));
+    if (next === item.quantity) return;
+    setQtyBusyId(item.id);
+    try {
+      await patchCartItem(item.id, { quantity: next });
+      await loadCart();
+      window.dispatchEvent(new Event("cart-updated"));
+    } catch (err) {
+      alert(err.message || "Failed to update quantity.");
+    } finally {
+      setQtyBusyId(null);
     }
   }
 
@@ -147,7 +163,30 @@ export default function CartPage() {
                   <img src={getProductImageSrc(p)} alt={p.name} style={s.itemImage} />
                   <div style={s.itemDetails}>
                     <h3 style={s.itemName}>{p.name}</h3>
-                    <p style={s.itemMeta}>Quantity: {item.quantity}</p>
+                    <div style={s.qtyRow} aria-label="Quantity">
+                      <span style={s.itemMeta}>Qty</span>
+                      <div style={s.qtyStepper}>
+                        <button
+                          type="button"
+                          style={s.qtyBtn}
+                          disabled={qtyBusyId === item.id || item.quantity <= 1}
+                          onClick={() => changeCartItemQuantity(item, -1)}
+                          aria-label="Decrease quantity"
+                        >
+                          −
+                        </button>
+                        <span style={s.qtyValue}>{item.quantity}</span>
+                        <button
+                          type="button"
+                          style={s.qtyBtn}
+                          disabled={qtyBusyId === item.id || item.quantity >= 99}
+                          onClick={() => changeCartItemQuantity(item, 1)}
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                     <p style={s.itemPrice}>{formatNPR(p.base_price)}</p>
                     {!item.customization ? (
                       <p style={s.warningText}>Direct purchase item (no customization)</p>
@@ -218,7 +257,40 @@ const s = {
   itemImage: { width: "100px", height: "100px", objectFit: "cover", borderRadius: "6px", background: "#f5f5f5" },
   itemDetails: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" },
   itemName: { fontSize: "18px", fontWeight: "bold", margin: "0 0 8px 0" },
-  itemMeta: { color: "#666", margin: "0 0 4px 0", fontSize: "14px" },
+  itemMeta: { color: "#666", margin: 0, fontSize: "14px", fontWeight: 600 },
+  qtyRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    margin: "6px 0 4px 0",
+  },
+  qtyStepper: {
+    display: "inline-flex",
+    alignItems: "center",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#fff",
+  },
+  qtyBtn: {
+    width: "34px",
+    height: "34px",
+    border: "none",
+    background: "#f0f2f5",
+    cursor: "pointer",
+    fontSize: "17px",
+    fontWeight: 700,
+    lineHeight: 1,
+    color: "#1a1a2e",
+    padding: 0,
+  },
+  qtyValue: {
+    minWidth: "34px",
+    textAlign: "center",
+    fontSize: "15px",
+    fontWeight: 700,
+    color: "#1a1a2e",
+  },
   itemPrice: { fontWeight: "bold", margin: "0 0 4px 0" },
   warningText: { color: "#d9534f", fontSize: "13px", fontWeight: "bold", margin: 0 },
   successText: { color: "#5cb85c", fontSize: "13px", fontWeight: "bold", margin: 0 },

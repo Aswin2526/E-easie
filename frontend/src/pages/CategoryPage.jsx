@@ -29,6 +29,8 @@ export default function CategoryPage() {
     }
   });
   const [wishlistByProductId, setWishlistByProductId] = useState({});
+  /** Per-product quantity for Add to cart / Buy now (1–99). */
+  const [quantityByProductId, setQuantityByProductId] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +111,20 @@ export default function CategoryPage() {
     setSelectionByType((prev) => ({ ...prev, [productType]: next }));
   }
 
+  const qtyFor = (productId) => {
+    const q = quantityByProductId[String(productId)];
+    return typeof q === "number" && q >= 1 ? q : 1;
+  };
+
+  const adjustQty = (productId, delta) => {
+    const id = String(productId);
+    setQuantityByProductId((prev) => {
+      const cur = prev[id] ?? 1;
+      const next = Math.min(99, Math.max(1, cur + delta));
+      return { ...prev, [id]: next };
+    });
+  };
+
   function customizeLink(productType, productId) {
     const next = computeNextSelection(productType, productId);
     const q = new URLSearchParams({
@@ -127,7 +143,7 @@ export default function CategoryPage() {
       return;
     }
     try {
-      await addToCart({ product: p.id, quantity: 1 });
+      await addToCart({ product: p.id, quantity: qtyFor(p.id) });
       window.dispatchEvent(new Event("cart-updated"));
       alert(`${p.name} added to cart!`);
     } catch (err) {
@@ -172,7 +188,7 @@ export default function CategoryPage() {
 
     const payload = {
       product: p.id,
-      quantity: 1,
+      quantity: qtyFor(p.id),
       shipping_address: shippingAddress.trim(),
     };
     try {
@@ -245,6 +261,28 @@ export default function CategoryPage() {
                   <h3 style={page.cardTitle}>{p.name}</h3>
                   <p style={page.price}>{formatNPR(p.base_price)}</p>
                   <ProductStarsLine average={p.rating_average} count={p.rating_count} />
+                  <div style={page.qtyRow} aria-label="Quantity">
+                    <span style={page.qtyLabel}>Qty</span>
+                    <div style={page.qtyStepper}>
+                      <button
+                        type="button"
+                        style={page.qtyBtn}
+                        onClick={() => adjustQty(p.id, -1)}
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <span style={page.qtyValue}>{qtyFor(p.id)}</span>
+                      <button
+                        type="button"
+                        style={page.qtyBtn}
+                        onClick={() => adjustQty(p.id, 1)}
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                   <div style={page.cardActions}>
                     <Link
                       to={customizeLink(p.product_type, p.id)}
@@ -336,6 +374,42 @@ const page = {
     margin: "0 0 8px 0",
     lineHeight: 1.35,
     minHeight: "1.35em",
+  },
+  qtyRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    marginBottom: "10px",
+  },
+  qtyLabel: { fontSize: "13px", fontWeight: 600, color: "#555" },
+  qtyStepper: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 0,
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#fff",
+  },
+  qtyBtn: {
+    width: "36px",
+    height: "36px",
+    border: "none",
+    background: "#f0f2f5",
+    cursor: "pointer",
+    fontSize: "18px",
+    fontWeight: 700,
+    lineHeight: 1,
+    color: "#1a1a2e",
+    padding: 0,
+  },
+  qtyValue: {
+    minWidth: "36px",
+    textAlign: "center",
+    fontSize: "15px",
+    fontWeight: 700,
+    color: "#1a1a2e",
   },
   cardActions: {
     marginTop: "auto",

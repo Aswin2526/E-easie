@@ -8,7 +8,22 @@ export default function WishlistPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [quantityByProductId, setQuantityByProductId] = useState({});
   const navigate = useNavigate();
+
+  const qtyFor = (productId) => {
+    const q = quantityByProductId[String(productId)];
+    return typeof q === "number" && q >= 1 ? q : 1;
+  };
+
+  const adjustQty = (productId, delta) => {
+    const id = String(productId);
+    setQuantityByProductId((prev) => {
+      const cur = prev[id] ?? 1;
+      const next = Math.min(99, Math.max(1, cur + delta));
+      return { ...prev, [id]: next };
+    });
+  };
 
   useEffect(() => {
     loadWishlist();
@@ -44,7 +59,7 @@ export default function WishlistPage() {
 
   async function handleAddToCart(product) {
     try {
-      await addToCart({ product: product.id, quantity: 1 });
+      await addToCart({ product: product.id, quantity: qtyFor(product.id) });
       window.dispatchEvent(new Event("cart-updated"));
       alert("Added to cart!");
     } catch (err) {
@@ -72,6 +87,28 @@ export default function WishlistPage() {
                 <div style={s.cardBody}>
                   <h3 style={s.cardTitle}>{p.name}</h3>
                   <p style={s.price}>{formatNPR(p.base_price)}</p>
+                  <div style={s.qtyRow} aria-label="Quantity">
+                    <span style={s.qtyLabel}>Qty</span>
+                    <div style={s.qtyStepper}>
+                      <button
+                        type="button"
+                        style={s.qtyBtn}
+                        onClick={() => adjustQty(p.id, -1)}
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <span style={s.qtyValue}>{qtyFor(p.id)}</span>
+                      <button
+                        type="button"
+                        style={s.qtyBtn}
+                        onClick={() => adjustQty(p.id, 1)}
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                   <div style={s.buttonGroup}>
                     <button style={s.btnPrimary} onClick={() => handleAddToCart(p)}>Add to Cart</button>
                     <button style={s.btnSecondary} onClick={() => navigate(`/customize?category=${p.product_type}&product=${p.id}&primary=${p.id}`)}>Customize</button>
@@ -122,6 +159,41 @@ const s = {
     overflow: "hidden",
   },
   price: { color: "#444", margin: "0 0 8px 0", lineHeight: 1.35, minHeight: "1.35em" },
+  qtyRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    marginBottom: "4px",
+  },
+  qtyLabel: { fontSize: "12px", fontWeight: 600, color: "#555" },
+  qtyStepper: {
+    display: "inline-flex",
+    alignItems: "center",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#fff",
+  },
+  qtyBtn: {
+    width: "32px",
+    height: "32px",
+    border: "none",
+    background: "#f0f2f5",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: 700,
+    lineHeight: 1,
+    color: "#1a1a2e",
+    padding: 0,
+  },
+  qtyValue: {
+    minWidth: "32px",
+    textAlign: "center",
+    fontSize: "14px",
+    fontWeight: 700,
+    color: "#1a1a2e",
+  },
   buttonGroup: { display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "auto" },
   btnPrimary: { background: "#1a1a2e", color: "#fff", border: "none", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", flex: 1 },
   btnSecondary: { background: "transparent", color: "#1a1a2e", border: "1px solid #1a1a2e", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", flex: 1 },

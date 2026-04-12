@@ -18,6 +18,7 @@ import AdminPaymentPage from "./pages/AdminPaymentPage";
 import AdminReportPage from "./pages/AdminReportPage";
 import CartPage from "./pages/CartPage";
 import WishlistPage from "./pages/WishlistPage";
+import PaymentReceiptPage from "./pages/PaymentReceiptPage";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/customize" element={<CustomizePage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
+            <Route path="/payment-receipt" element={<PaymentReceiptPage />} />
           </Route>
           <Route element={<RequireAdmin />}>
             <Route element={<AdminLayout />}>

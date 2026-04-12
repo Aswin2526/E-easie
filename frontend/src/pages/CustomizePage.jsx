@@ -1006,16 +1006,28 @@ export default function CustomizePage() {
           <p style={s.stepHint}>
             Satisfied with your design? Save it first, then add to your shopping cart.
           </p>
-          <label style={s.label}>
-            Quantity
-            <input
-              type="number"
-              min={1}
-              style={s.input}
-              value={orderQty}
-              onChange={(e) => setOrderQty(Number(e.target.value) || 1)}
-            />
-          </label>
+          <div style={s.orderQtyBlock}>
+            <span style={s.orderQtyLabel}>Quantity</span>
+            <div style={s.orderQtyStepper} aria-label="Quantity">
+              <button
+                type="button"
+                style={s.orderQtyBtn}
+                onClick={() => setOrderQty((q) => Math.max(1, q - 1))}
+                aria-label="Decrease quantity"
+              >
+                −
+              </button>
+              <span style={s.orderQtyNum}>{orderQty}</span>
+              <button
+                type="button"
+                style={s.orderQtyBtn}
+                onClick={() => setOrderQty((q) => Math.min(99, q + 1))}
+                aria-label="Increase quantity"
+              >
+                +
+              </button>
+            </div>
+          </div>
           <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
             {ordering ? "Adding..." : "Add to Cart"}
           </button>
@@ -1188,6 +1200,36 @@ const s = {
   },
   form: { display: "flex", flexDirection: "column", gap: "14px" },
   label: { display: "flex", flexDirection: "column", gap: "6px", fontWeight: "600", fontSize: "14px" },
+  orderQtyBlock: { display: "flex", flexDirection: "column", gap: "6px" },
+  orderQtyLabel: { fontWeight: "600", fontSize: "14px" },
+  orderQtyStepper: {
+    display: "inline-flex",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    border: "1px solid #ccc",
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#fff",
+  },
+  orderQtyBtn: {
+    width: "40px",
+    height: "40px",
+    border: "none",
+    background: "#f0f2f5",
+    cursor: "pointer",
+    fontSize: "18px",
+    fontWeight: "700",
+    lineHeight: 1,
+    color: "#1a1a2e",
+    padding: 0,
+  },
+  orderQtyNum: {
+    minWidth: "40px",
+    textAlign: "center",
+    fontSize: "16px",
+    fontWeight: "700",
+    color: "#1a1a2e",
+  },
   input: {
     padding: "10px 12px",
     borderRadius: "8px",
