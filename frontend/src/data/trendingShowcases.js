@@ -5,7 +5,6 @@ import trendingGreenJoggerPants from "../assets/trending_green_jogger_pants.png"
 import trendingGreyDrawstringPants from "../assets/trending_grey_drawstring_pants.png";
 import trendingSkyBlueButtonTop from "../assets/trending_sky_blue_button_top.png";
 import trendingPuffSleeveBlueTop from "../assets/trending_puff_sleeve_blue_top.png";
-import trendingBerryZipKnit from "../assets/trending_berry_zip_knit.png";
 
 /** Curated hero images (add files under src/assets/ and switch imports if these paths break). */
 const trendingWomenFestiveSet =
@@ -124,17 +123,6 @@ export const trendingShowcaseMore = [
       "Statement puff sleeves in a rich blue with a fitted bodice—dress up with skirts or down with jeans.",
     catalogSlug: "textured-blue-gauze-button-down",
   }),
-  reg({
-    showcaseSlug: "berry-zip-knit-top",
-    img: trendingBerryZipKnit,
-    alt: "Berry Zip Knit Top",
-    title: "Berry Zip Knit Top",
-    price: 2799,
-    typeLabel: "Trending",
-    description:
-      "Berry-toned zip knit with a high collar and soft texture—perfect between-season layering.",
-    catalogSlug: "mint-quarter-zip-hoodie",
-  }),
 ];
 
 export function getTrendingShowcase(slugOrId) {
@@ -157,7 +145,6 @@ const SHOWCASE_PRIMARY_HEX = {
   "grey-drawstring-pants": "#8e9298",
   "sky-blue-button-top": "#7eb6eb",
   "puff-sleeve-blue-top": "#3d6aa8",
-  "berry-zip-knit-top": "#8b2f5c",
 };
 
 /**
@@ -175,7 +162,7 @@ export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
     type = "skirt";
   } else if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
     type = "pant";
-  } else if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top", "berry-zip-knit-top"].includes(slug)) {
+  } else if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top"].includes(slug)) {
     type = "tshirt";
   }
   if (type === "pant") return { front: primary, back: primary };

@@ -395,7 +395,7 @@ export default function CustomizePage() {
       if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
         return "pant";
       }
-      if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top", "berry-zip-knit-top"].includes(slug)) {
+      if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top"].includes(slug)) {
         return "tshirt";
       }
     }
