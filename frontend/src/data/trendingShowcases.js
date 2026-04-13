@@ -2,7 +2,6 @@ import trendingGreenOffShoulderTop from "../assets/trending_green_off_shoulder_t
 import trendingBlackFloralMaxiSkirt from "../assets/trending_black_floral_maxi_skirt.png";
 import trendingOliveLongCoat from "../assets/trending_olive_long_coat.png";
 import trendingGreenJoggerPants from "../assets/trending_green_jogger_pants.png";
-import trendingGreyDrawstringPants from "../assets/trending_grey_drawstring_pants.png";
 import trendingSkyBlueButtonTop from "../assets/trending_sky_blue_button_top.png";
 import trendingPuffSleeveBlueTop from "../assets/trending_puff_sleeve_blue_top.png";
 
@@ -91,17 +90,6 @@ export const trendingShowcaseMore = [
     catalogSlug: "classic-beige-tailored-trousers",
   }),
   reg({
-    showcaseSlug: "grey-drawstring-pants",
-    img: trendingGreyDrawstringPants,
-    alt: "Grey Drawstring Pants",
-    title: "Grey Drawstring Pants",
-    price: 2599,
-    typeLabel: "Trending",
-    description:
-      "Soft grey drawstring pants with a relaxed leg and easy pull-on comfort for home, studio, or travel.",
-    catalogSlug: "charcoal-wide-leg-denim-jeans",
-  }),
-  reg({
     showcaseSlug: "sky-blue-button-top",
     img: trendingSkyBlueButtonTop,
     alt: "Sky Blue Button Top",
@@ -142,7 +130,6 @@ const SHOWCASE_PRIMARY_HEX = {
   "floral-maxi-skirt": "#181818",
   "olive-long-coat": "#4a5438",
   "green-jogger-pants": "#2f4d38",
-  "grey-drawstring-pants": "#8e9298",
   "sky-blue-button-top": "#7eb6eb",
   "puff-sleeve-blue-top": "#3d6aa8",
 };
@@ -160,7 +147,7 @@ export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
   const slug = showcaseEntry.showcaseSlug;
   if (["festive-beige-set", "floral-maxi-skirt"].includes(slug)) {
     type = "skirt";
-  } else if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
+  } else if (["classic-daura-set", "green-jogger-pants"].includes(slug)) {
     type = "pant";
   } else if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top"].includes(slug)) {
     type = "tshirt";

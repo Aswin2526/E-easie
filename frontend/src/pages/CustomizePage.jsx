@@ -392,7 +392,7 @@ export default function CustomizePage() {
       if (["festive-beige-set", "floral-maxi-skirt"].includes(slug)) {
         return "skirt";
       }
-      if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
+      if (["classic-daura-set", "green-jogger-pants"].includes(slug)) {
         return "pant";
       }
       if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top"].includes(slug)) {
