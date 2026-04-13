@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { NotifyProvider } from "./contexts/NotifyContext";
 import Layout from "./components/Layout";
 import AuthLayout from "./components/AuthLayout";
 import AdminLayout from "./components/admin/AdminLayout";
@@ -23,6 +24,7 @@ import PaymentReceiptPage from "./pages/PaymentReceiptPage";
 export default function App() {
   return (
     <BrowserRouter>
+      <NotifyProvider>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
@@ -50,6 +52,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
         </Route>
       </Routes>
+      </NotifyProvider>
     </BrowserRouter>
   );
 }

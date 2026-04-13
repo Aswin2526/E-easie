@@ -3,15 +3,16 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchCart, patchCartItem, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
+import { useNotify } from "../contexts/NotifyContext";
 
 export default function CartPage() {
+  const toast = useNotify();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [checkingOut, setCheckingOut] = useState(false);
   const [esewaBusy, setEsewaBusy] = useState(false);
   const [shippingAddress, setShippingAddress] = useState("");
-  const [payMsg, setPayMsg] = useState(null);
   const [qtyBusyId, setQtyBusyId] = useState(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,9 +35,10 @@ export default function CartPage() {
       amount_mismatch: "Payment amount did not match your order total.",
       status_check_failed: "Could not confirm payment with eSewa. Try again later or contact support.",
     };
-    setPayMsg(labels[payment] || `Payment: ${payment.replace(/_/g, " ")}`);
+    const message = labels[payment] || `Payment: ${payment.replace(/_/g, " ")}`;
+    toast.warning({ title: "Payment", message, duration: 9000 });
     setSearchParams({}, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, toast]);
 
   async function loadCart() {
     setLoading(true);
@@ -60,7 +62,7 @@ export default function CartPage() {
       await loadCart();
       window.dispatchEvent(new Event("cart-updated"));
     } catch (err) {
-      alert(err.message || "Failed to update quantity.");
+      toast.error("Cart", err.message || "Could not update quantity.");
     } finally {
       setQtyBusyId(null);
     }
@@ -73,7 +75,7 @@ export default function CartPage() {
       await loadCart();
       window.dispatchEvent(new Event("cart-updated"));
     } catch (err) {
-      alert(err.message || "Failed to remove item.");
+      toast.error("Cart", err.message || "Could not remove this item.");
     }
   }
 
@@ -82,7 +84,7 @@ export default function CartPage() {
     if (!cart || !cart.items || cart.items.length === 0) return;
 
     if (!shippingAddress.trim()) {
-      alert("Please provide a shipping address.");
+      toast.warning("Shipping address", "Please enter your full shipping address before placing the order.");
       return;
     }
 
@@ -103,11 +105,14 @@ export default function CartPage() {
         await removeCartItem(item.id);
         successCount++;
       }
-      alert(`Successfully placed ${successCount} orders! Check 'Track Order' for status.`);
+      toast.success(
+        "Orders placed",
+        `${successCount} order${successCount === 1 ? "" : "s"} confirmed. Track progress from Track Order.`
+      );
       window.dispatchEvent(new Event("cart-updated"));
       navigate("/track-order");
     } catch (err) {
-      alert(err.message || "Checkout encountered an error.");
+      toast.error("Checkout", err.message || "Checkout failed. Your cart is unchanged where possible.");
       await loadCart();
     } finally {
       setCheckingOut(false);
@@ -118,7 +123,7 @@ export default function CartPage() {
     e.preventDefault();
     if (!cart || !cart.items || cart.items.length === 0) return;
     if (!shippingAddress.trim()) {
-      alert("Please provide a shipping address.");
+      toast.warning("Shipping address", "Please enter your shipping address before paying with eSewa.");
       return;
     }
     setEsewaBusy(true);
@@ -126,12 +131,18 @@ export default function CartPage() {
       const res = await checkoutCartWithEsewa(shippingAddress.trim());
       window.dispatchEvent(new Event("cart-updated"));
       if (res?.epay_url && res?.fields) {
+        toast.notify({
+          variant: "info",
+          title: "eSewa",
+          message: "A secure payment window will open. Complete payment there, then return here if prompted.",
+          duration: 4500,
+        });
         submitEsewaPaymentForm(res.epay_url, res.fields);
         return;
       }
-      alert("eSewa payment could not be started. Missing gateway data.");
+      toast.error("eSewa", "Payment could not be started — gateway data was missing. Try again or contact support.");
     } catch (err) {
-      alert(err.message || "eSewa checkout failed.");
+      toast.error("eSewa checkout", err.message || "Could not start eSewa. Check your connection and try again.");
     } finally {
       setEsewaBusy(false);
     }
@@ -146,11 +157,6 @@ export default function CartPage() {
   return (
     <div style={s.wrap}>
       <h1 style={s.title}>Shopping Cart</h1>
-      {payMsg ? (
-        <p style={s.payWarn} role="alert">
-          {payMsg}
-        </p>
-      ) : null}
       {items.length === 0 ? (
         <p style={{ marginTop: 20 }}>Your cart is empty. <Link to="/category">Browse Products</Link></p>
       ) : (
@@ -317,14 +323,4 @@ const s = {
     marginTop: "12px",
   },
   payHint: { fontSize: "12px", color: "#666", marginTop: "12px", lineHeight: 1.4, marginBottom: 0 },
-  payWarn: {
-    padding: "12px 14px",
-    background: "#fef3c7",
-    border: "1px solid #fcd34d",
-    borderRadius: "8px",
-    color: "#92400e",
-    fontSize: "14px",
-    marginBottom: "16px",
-    lineHeight: 1.45,
-  },
 };

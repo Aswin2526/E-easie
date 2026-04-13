@@ -12,10 +12,12 @@ import {
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
+import { useNotify } from "../contexts/NotifyContext";
 
 const CATEGORY_SELECTIONS_KEY = "categorySelections";
 
 export default function CategoryPage() {
+  const toast = useNotify();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,8 +31,6 @@ export default function CategoryPage() {
     }
   });
   const [wishlistByProductId, setWishlistByProductId] = useState({});
-  /** Per-product quantity for Add to cart / Buy now (1–99). */
-  const [quantityByProductId, setQuantityByProductId] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -111,20 +111,6 @@ export default function CategoryPage() {
     setSelectionByType((prev) => ({ ...prev, [productType]: next }));
   }
 
-  const qtyFor = (productId) => {
-    const q = quantityByProductId[String(productId)];
-    return typeof q === "number" && q >= 1 ? q : 1;
-  };
-
-  const adjustQty = (productId, delta) => {
-    const id = String(productId);
-    setQuantityByProductId((prev) => {
-      const cur = prev[id] ?? 1;
-      const next = Math.min(99, Math.max(1, cur + delta));
-      return { ...prev, [id]: next };
-    });
-  };
-
   function customizeLink(productType, productId) {
     const next = computeNextSelection(productType, productId);
     const q = new URLSearchParams({
@@ -139,22 +125,25 @@ export default function CategoryPage() {
   async function handleAddToCart(p, e) {
     e.preventDefault();
     if (!getStoredToken()) {
-      alert("Please sign in to add to cart.");
+      toast.warning("Sign in required", "Please sign in to add items to your cart.");
       return;
     }
     try {
-      await addToCart({ product: p.id, quantity: qtyFor(p.id) });
+      await addToCart({ product: p.id, quantity: 1 });
       window.dispatchEvent(new Event("cart-updated"));
-      alert(`${p.name} added to cart!`);
+      toast.success(
+        "Added to cart",
+        `${p.name} — open your cart to change quantity (+/−) before checkout.`
+      );
     } catch (err) {
-      alert(err.message || "Failed to add to cart");
+      toast.error("Could not add to cart", err.message || "Something went wrong. Please try again.");
     }
   }
 
   async function handleWishlist(p, e) {
     e.preventDefault();
     if (!getStoredToken()) {
-      alert("Please sign in to add to wishlist.");
+      toast.warning("Sign in required", "Please sign in to save items to your wishlist.");
       return;
     }
     const key = String(p.id);
@@ -167,20 +156,22 @@ export default function CategoryPage() {
           delete next[key];
           return next;
         });
+        toast.info("Wishlist updated", `${p.name} was removed from your wishlist.`);
       } else {
         const created = await addToWishlist(p.id);
         setWishlistByProductId((prev) => ({ ...prev, [key]: created?.id || true }));
+        toast.success("Saved to wishlist", `${p.name} — view it anytime under Wishlist.`);
       }
       window.dispatchEvent(new Event("wishlist-updated"));
     } catch (err) {
-      alert(err.message || "Failed to update wishlist.");
+      toast.error("Wishlist", err.message || "Could not update your wishlist.");
     }
   }
 
   async function handleBuyNow(p, e) {
     e.preventDefault();
     if (!getStoredToken()) {
-      alert("Please sign in to purchase this product.");
+      toast.warning("Sign in required", "Please sign in to place an order.");
       return;
     }
     const shippingAddress = window.prompt("Enter shipping address:");
@@ -188,14 +179,17 @@ export default function CategoryPage() {
 
     const payload = {
       product: p.id,
-      quantity: qtyFor(p.id),
+      quantity: 1,
       shipping_address: shippingAddress.trim(),
     };
     try {
       await placeOrder(payload);
-      alert(`Order placed for ${p.name}! You can track it from Track Order.`);
+      toast.success(
+        "Order placed",
+        `${p.name} — Track status anytime from Track Order in the menu.`
+      );
     } catch (err) {
-      alert(err.message || "Failed to place order.");
+      toast.error("Order failed", err.message || "We could not place your order. Please try again.");
     }
   }
 
@@ -261,28 +255,6 @@ export default function CategoryPage() {
                   <h3 style={page.cardTitle}>{p.name}</h3>
                   <p style={page.price}>{formatNPR(p.base_price)}</p>
                   <ProductStarsLine average={p.rating_average} count={p.rating_count} />
-                  <div style={page.qtyRow} aria-label="Quantity">
-                    <span style={page.qtyLabel}>Qty</span>
-                    <div style={page.qtyStepper}>
-                      <button
-                        type="button"
-                        style={page.qtyBtn}
-                        onClick={() => adjustQty(p.id, -1)}
-                        aria-label="Decrease quantity"
-                      >
-                        −
-                      </button>
-                      <span style={page.qtyValue}>{qtyFor(p.id)}</span>
-                      <button
-                        type="button"
-                        style={page.qtyBtn}
-                        onClick={() => adjustQty(p.id, 1)}
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
                   <div style={page.cardActions}>
                     <Link
                       to={customizeLink(p.product_type, p.id)}
@@ -291,14 +263,12 @@ export default function CategoryPage() {
                     >
                       Customize
                     </Link>
-                    <div style={page.actions}>
-                      <button style={page.iconBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
-                        🛒 Add
-                      </button>
-                      <button style={page.iconBtnBuy} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
-                        Buy Now
-                      </button>
-                    </div>
+                    <button style={page.addToCartBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
+                      🛒 Add to cart
+                    </button>
+                    <button style={page.buyNowBtn} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
+                      Buy now
+                    </button>
                   </div>
                 </div>
               </article>
@@ -375,48 +345,34 @@ const page = {
     lineHeight: 1.35,
     minHeight: "1.35em",
   },
-  qtyRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    marginBottom: "10px",
-  },
-  qtyLabel: { fontSize: "13px", fontWeight: 600, color: "#555" },
-  qtyStepper: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 0,
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    overflow: "hidden",
-    background: "#fff",
-  },
-  qtyBtn: {
-    width: "36px",
-    height: "36px",
-    border: "none",
-    background: "#f0f2f5",
-    cursor: "pointer",
-    fontSize: "18px",
-    fontWeight: 700,
-    lineHeight: 1,
-    color: "#1a1a2e",
-    padding: 0,
-  },
-  qtyValue: {
-    minWidth: "36px",
-    textAlign: "center",
-    fontSize: "15px",
-    fontWeight: 700,
-    color: "#1a1a2e",
-  },
   cardActions: {
     marginTop: "auto",
     display: "flex",
     flexDirection: "column",
     gap: "10px",
     paddingTop: "4px",
+  },
+  addToCartBtn: {
+    width: "100%",
+    padding: "10px 12px",
+    background: "#f3f4f6",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#1f2937",
+  },
+  buyNowBtn: {
+    width: "100%",
+    padding: "10px 12px",
+    background: "#1a1a2e",
+    color: "#fff",
+    border: "1px solid #1a1a2e",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "700",
   },
   cta: {
     display: "block",
@@ -429,9 +385,6 @@ const page = {
     fontWeight: "600",
     fontSize: "14px",
   },
-  actions: { display: "flex", gap: "8px" },
-  iconBtn: { flex: 1, padding: "8px", background: "#f0f2f5", border: "1px solid #ddd", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" },
-  iconBtnBuy: { flex: 1, padding: "8px", background: "#1a1a2e", color: "#fff", border: "1px solid #1a1a2e", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" },
   wishlistEmojiBtn: {
     position: "absolute",
     top: 10,

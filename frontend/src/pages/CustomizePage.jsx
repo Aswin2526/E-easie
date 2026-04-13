@@ -5,6 +5,7 @@ import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 import ProductRatingsPanel from "../components/ProductRatingsPanel";
 import ProductStarsLine from "../components/ProductStarsLine";
+import { useNotify } from "../contexts/NotifyContext";
 
 
 const PRIMARY_CATEGORIES = [
@@ -28,6 +29,7 @@ const FABRICS = [
 const SIZES = ["S", "M", "L", "XL", "CUSTOM"];
 
 export default function CustomizePage() {
+  const toast = useNotify();
   const [searchParams, setSearchParams] = useSearchParams();
   const productFromUrl = searchParams.get("product");
   const primaryFromUrl = searchParams.get("primary");
@@ -82,7 +84,6 @@ export default function CustomizePage() {
   const [orderQty, setOrderQty] = useState(1);
   const [shippingAddress, setShippingAddress] = useState("");
   const [ordering, setOrdering] = useState(false);
-  const [orderMessage, setOrderMessage] = useState(null);
   const [showSubscribeToast, setShowSubscribeToast] = useState(false);
 
   const isLoggedIn = Boolean(getStoredToken());
@@ -271,7 +272,6 @@ export default function CustomizePage() {
       return;
     }
     setSaveMessage(null);
-    setOrderMessage(null);
     if (!productId) {
       setSaveMessage("Select a product.");
       return;
@@ -369,9 +369,8 @@ export default function CustomizePage() {
       notifySubscriptionRequired();
       return;
     }
-    setOrderMessage(null);
     if (!savedCustomizationId) {
-      setOrderMessage("Save your design first.");
+      toast.warning("Save your design first", "Use “Save design” above, then add your item to the cart.");
       return;
     }
     const payload = {
@@ -382,9 +381,13 @@ export default function CustomizePage() {
     setOrdering(true);
     try {
       await addToCart(payload);
-      setOrderMessage("Successfully added to cart!");
+      window.dispatchEvent(new Event("cart-updated"));
+      toast.success(
+        "Added to cart",
+        `Your custom design · Quantity ${orderQty}. Open your cart to review or checkout.`
+      );
     } catch (err) {
-      setOrderMessage(err.message || "Failed to add to cart.");
+      toast.error("Could not add to cart", err.message || "Please try again in a moment.");
     } finally {
       setOrdering(false);
     }
@@ -1031,7 +1034,6 @@ export default function CustomizePage() {
           <button type="submit" style={s.primary} disabled={ordering || !savedCustomizationId}>
             {ordering ? "Adding..." : "Add to Cart"}
           </button>
-          {orderMessage && <p style={s.msg}>{orderMessage}</p>}
         </form>
       </section>
       {showSubscribeToast ? (
@@ -1040,7 +1042,7 @@ export default function CustomizePage() {
           <button
             type="button"
             style={s.subscribeBtn}
-            onClick={() => alert("Subscription plans will be available soon.")}
+            onClick={() => toast.info("Subscriptions", "Subscription plans will be available soon. Stay tuned!")}
           >
             Subscribe
           </button>
