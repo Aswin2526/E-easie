@@ -98,7 +98,7 @@ export const trendingShowcaseMore = [
     typeLabel: "Trending",
     description:
       "Sky blue button-through top with a neat collar and lightweight fabric for warm-weather layering.",
-    catalogSlug: "sky-blue-check-long-sleeve-shirt",
+    catalogSlug: "textured-blue-gauze-button-down",
   }),
   reg({
     showcaseSlug: "puff-sleeve-blue-top",

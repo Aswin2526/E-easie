@@ -22,7 +22,6 @@ import teeWhiteRelaxed from "./assets/tshirts/white-relaxed-long-sleeve-tee.png"
 import teeBlueSleeveless from "./assets/tshirts/blue-sleeveless-ribbed-crop-top.png";
 import shirtWhiteOxford from "./assets/shirts/white-oxford-dress-shirt.png";
 import shirtBlackRibbed from "./assets/shirts/black-ribbed-short-sleeve-shirt.png";
-import shirtSkyCheck from "./assets/shirts/sky-blue-check-long-sleeve.png";
 import shirtWhitePocket from "./assets/shirts/white-short-sleeve-pocket-shirt.png";
 import shirtElegantVneck from "./assets/shirts/elegant-white-vneck-blouse.png";
 import shirtTexturedBlue from "./assets/shirts/textured-blue-gauze-button-down.png";
@@ -93,7 +92,6 @@ const TSHIRT_IMAGES_BY_SLUG = {
 const SHIRT_IMAGES_BY_SLUG = {
   "white-oxford-dress-shirt": shirtWhiteOxford,
   "black-ribbed-short-sleeve-shirt": shirtBlackRibbed,
-  "sky-blue-check-long-sleeve-shirt": shirtSkyCheck,
   "white-short-sleeve-pocket-shirt": shirtWhitePocket,
   "elegant-white-vneck-blouse": shirtElegantVneck,
   "textured-blue-gauze-button-down": shirtTexturedBlue,

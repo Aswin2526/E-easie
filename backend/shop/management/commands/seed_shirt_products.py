@@ -29,13 +29,6 @@ SHIRT_ITEMS = [
         "shirt-black-ribbed-short-sleeve.png",
     ),
     (
-        "sky-blue-check-long-sleeve-shirt",
-        "Sky Blue Check Long-Sleeve Shirt",
-        "Pale blue and cream check long-sleeve shirt with relaxed casual fit.",
-        "52.00",
-        "shirt-sky-blue-check.png",
-    ),
-    (
         "white-short-sleeve-pocket-shirt",
         "White Short-Sleeve Pocket Shirt",
         "White short-sleeve button-down with chest pocket and clean hem.",
@@ -80,11 +73,19 @@ def _remove_legacy_formal_shirt():
         product.delete()
 
 
+def _remove_sky_blue_check_long_sleeve_shirt():
+    for product in Product.objects.filter(slug="sky-blue-check-long-sleeve-shirt"):
+        for cust in product.customizations.all():
+            Order.objects.filter(customization=cust).delete()
+        product.delete()
+
+
 class Command(BaseCommand):
     help = "Seed shirt products with photos; removes legacy seed_demo 'Formal Shirt'."
 
     def handle(self, *args, **options):
         _remove_legacy_formal_shirt()
+        _remove_sky_blue_check_long_sleeve_shirt()
 
         media_products = Path(settings.MEDIA_ROOT) / "products"
         media_products.mkdir(parents=True, exist_ok=True)
