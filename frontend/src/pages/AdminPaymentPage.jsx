@@ -1,9 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
 import { fetchAdminOrders } from "../api";
 import { formatNPR } from "../currency";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
 import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
+
+const PAYMENT_FILTERS = [
+  { value: "all", label: "All payments" },
+  { value: "Pending", label: "Pending" },
+  { value: "Partially paid", label: "Partially paid" },
+  { value: "Paid", label: "Paid" },
+  { value: "Cancelled", label: "Cancelled" },
+];
 
 function formatDateTime(value) {
   if (!value) return "-";
@@ -30,10 +37,11 @@ const payBase = {
 };
 
 export default function AdminPaymentPage() {
-  const { searchQuery } = useOutletContext();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [searchText, setSearchText] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -53,10 +61,14 @@ export default function AdminPaymentPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    return orders.filter((o) =>
-      matchesSearch(searchQuery, o.id, o.customer, o.customer_email, o.product, o.status, o.payment_status),
-    );
-  }, [orders, searchQuery]);
+    return orders.filter((o) => {
+      const matchesNameOrProduct = matchesSearch(searchText, o.customer, o.product);
+      if (!matchesNameOrProduct) return false;
+      if (paymentFilter === "all") return true;
+      const pay = String(o.payment_status || "").trim();
+      return pay.toLowerCase() === paymentFilter.toLowerCase();
+    });
+  }, [orders, searchText, paymentFilter]);
 
   const totals = useMemo(() => {
     let paid = 0;
@@ -105,11 +117,39 @@ export default function AdminPaymentPage() {
       </div>
 
       <section style={s.tableCard}>
-        <h2 style={s.tableTitle}>Orders &amp; payment status</h2>
-        <p style={s.tableHint}>
-          Payment labels follow the same rules as customer order tracking (pending, partial on confirmed, paid when
-          shipped).
-        </p>
+        <div style={tableToolbar.wrap}>
+          <div style={tableToolbar.titleBlock}>
+            <h2 style={{ ...s.tableTitle, padding: 0 }}>Orders &amp; payment status</h2>
+          </div>
+          <div style={tableToolbar.controls}>
+            <label style={tableToolbar.searchLabel} htmlFor="admin-payment-search">
+              <input
+                id="admin-payment-search"
+                type="search"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Search by customer name or product…"
+                style={tableToolbar.searchInput}
+                aria-label="Search by customer name or product"
+              />
+            </label>
+            <div style={tableToolbar.filterWrap}>
+              <select
+                id="admin-payment-filter"
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                style={tableToolbar.select}
+                aria-label="Filter by payment status"
+              >
+                {PAYMENT_FILTERS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
         <table style={s.table}>
           <thead>
             <tr>
@@ -146,7 +186,9 @@ export default function AdminPaymentPage() {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 ? <p style={{ ...s.muted, padding: "16px" }}>No orders match your search.</p> : null}
+        {filtered.length === 0 ? (
+          <p style={{ ...s.muted, padding: "16px" }}>No orders match your search or payment filter.</p>
+        ) : null}
       </section>
     </main>
   );
@@ -158,4 +200,62 @@ const inner = {
   margin: "0 auto",
   width: "100%",
   boxSizing: "border-box",
+};
+
+const tableToolbar = {
+  wrap: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "16px",
+    padding: "16px 16px 12px",
+    borderBottom: "1px solid #e6e8f0",
+  },
+  titleBlock: {
+    flex: "1 1 240px",
+    minWidth: 0,
+  },
+  controls: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "10px",
+    flex: "1 1 280px",
+    marginLeft: "auto",
+  },
+  searchLabel: {
+    display: "block",
+    flex: "1 1 200px",
+    minWidth: "160px",
+    maxWidth: "360px",
+  },
+  searchInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    outline: "none",
+    fontFamily: "inherit",
+  },
+  filterWrap: {
+    display: "flex",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  select: {
+    minWidth: "160px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: 600,
+    color: "#111827",
+    background: "#fff",
+    fontFamily: "inherit",
+    cursor: "pointer",
+  },
 };

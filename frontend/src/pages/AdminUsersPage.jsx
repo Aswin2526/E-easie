@@ -41,9 +41,7 @@ export default function AdminUsersPage() {
   }, [refreshUsers]);
 
   const filtered = useMemo(() => {
-    return users.filter((u) =>
-      matchesSearch(searchQuery, u.id, u.name, u.email, u.role),
-    );
+    return users.filter((u) => matchesSearch(searchQuery, u.id, u.name, u.email));
   }, [users, searchQuery]);
 
   const myId = me?.id;
@@ -98,7 +96,6 @@ export default function AdminUsersPage() {
             <tr>
               <th style={s.th}>Name</th>
               <th style={s.th}>Email</th>
-              <th style={s.th}>Role</th>
               <th style={s.th}>Status</th>
               <th style={s.th}>Joined</th>
               <th style={s.th}>Actions</th>
@@ -113,7 +110,6 @@ export default function AdminUsersPage() {
                 <tr key={u.id} style={u.is_active === false ? s.rowInactive : undefined}>
                   <td style={s.td}>{u.name}</td>
                   <td style={s.td}>{u.email || "-"}</td>
-                  <td style={s.td}>{u.role}</td>
                   <td style={s.td}>
                     <select
                       style={{

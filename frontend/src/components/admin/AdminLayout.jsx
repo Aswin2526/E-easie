@@ -127,11 +127,21 @@ export default function AdminLayout() {
         @media (max-width: 900px) {
           .admin-app-layout {
             flex-direction: column;
+            height: auto !important;
+            min-height: 100vh;
+            max-height: none !important;
+            overflow: visible !important;
           }
           .admin-sidebar {
             width: 100% !important;
             max-width: none !important;
             min-height: auto;
+            flex-shrink: 0;
+          }
+          .admin-main-column {
+            flex: 1 1 auto;
+            min-height: min(60vh, 480px);
+            overflow: hidden;
           }
           .admin-dashboard-main-grid {
             grid-template-columns: 1fr !important;
@@ -139,7 +149,7 @@ export default function AdminLayout() {
         }
       `}</style>
       <AdminSidebar />
-      <div style={styles.mainColumn}>
+      <div className="admin-main-column" style={styles.mainColumn}>
         <AdminTopBar
           me={me}
           title={title}
@@ -155,7 +165,9 @@ export default function AdminLayout() {
 const styles = {
   layoutRoot: {
     display: "flex",
-    minHeight: "100vh",
+    height: "100vh",
+    maxHeight: "100vh",
+    overflow: "hidden",
     background: "#F9FAFB",
     boxSizing: "border-box",
   },
@@ -169,6 +181,8 @@ const styles = {
     flexDirection: "column",
     flexShrink: 0,
     boxSizing: "border-box",
+    alignSelf: "stretch",
+    overflowY: "auto",
   },
   sidebarBrand: {
     display: "flex",
@@ -227,6 +241,8 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden",
     background: "#F9FAFB",
   },
   topNav: {
@@ -302,6 +318,7 @@ const styles = {
   },
   pageContent: {
     flex: 1,
+    minHeight: 0,
     overflow: "auto",
     background: "#F9FAFB",
   },

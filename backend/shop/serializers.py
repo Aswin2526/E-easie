@@ -268,6 +268,7 @@ class OrderListSerializer(serializers.ModelSerializer):
         model = Order
         fields = (
             "id",
+            "user",
             "status",
             "quantity",
             "unit_price",
@@ -278,6 +279,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "customization_summary",
             "guest_email",
         )
+        read_only_fields = fields
 
     def get_customization_summary(self, obj):
         return str(obj.customization)

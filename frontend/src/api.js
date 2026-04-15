@@ -88,6 +88,16 @@ export function placeOrder(payload) {
   });
 }
 
+/** List current user's placed orders (GET). */
+export function fetchMyOrders() {
+  return apiFetch("/api/orders/");
+}
+
+/** List current user's saved customizations (GET). */
+export function fetchMyCustomizations() {
+  return apiFetch("/api/customizations/");
+}
+
 /** Create orders from cart and return eSewa signed fields; caller should POST form to epay_url. */
 export function checkoutCartWithEsewa(shippingAddress) {
   return apiFetch("/api/cart/esewa-checkout/", {
