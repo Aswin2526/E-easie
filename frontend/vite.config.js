@@ -1,10 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "node:path";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
+    fs: {
+      allow: [
+        path.resolve(__dirname),
+        "C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets",
+      ],
+    },
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { fetchAdminOrders } from "../api";
+import { adminPatchOrder, fetchAdminOrders } from "../api";
 import { formatNPR } from "../currency";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
 import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
@@ -7,9 +7,15 @@ import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
 const PAYMENT_FILTERS = [
   { value: "all", label: "All payments" },
   { value: "Pending", label: "Pending" },
-  { value: "Partially paid", label: "Partially paid" },
   { value: "Paid", label: "Paid" },
   { value: "Cancelled", label: "Cancelled" },
+];
+
+const ORDER_STATUS_OPTIONS = [
+  { value: "pending", label: "Pending" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "shipped", label: "Shipped" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 function formatDateTime(value) {
@@ -42,6 +48,9 @@ export default function AdminPaymentPage() {
   const [orders, setOrders] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [updatingById, setUpdatingById] = useState({});
+  const [statusDrafts, setStatusDrafts] = useState({});
+  const [cancelDrafts, setCancelDrafts] = useState({});
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +68,24 @@ export default function AdminPaymentPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!orders.length) return;
+    setStatusDrafts((prev) => {
+      const next = { ...prev };
+      for (const o of orders) {
+        if (!next[o.id]) next[o.id] = String(o.status || "pending").toLowerCase();
+      }
+      return next;
+    });
+    setCancelDrafts((prev) => {
+      const next = { ...prev };
+      for (const o of orders) {
+        if (next[o.id] == null) next[o.id] = o.cancel_description || "";
+      }
+      return next;
+    });
+  }, [orders]);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -79,6 +106,50 @@ export default function AdminPaymentPage() {
     }
     return { paid, outstanding };
   }, [filtered]);
+
+  async function patchOrderStatus(orderId, nextStatus, cancelDescription = "") {
+    setUpdatingById((prev) => ({ ...prev, [orderId]: true }));
+    setError(null);
+    try {
+      const res = await adminPatchOrder(orderId, {
+        status: nextStatus,
+        cancel_description: nextStatus === "cancelled" ? cancelDescription : "",
+      });
+      const updated = res?.order;
+      if (!updated) return;
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      setStatusDrafts((prev) => ({ ...prev, [orderId]: String(updated.status || "").toLowerCase() }));
+      setCancelDrafts((prev) => ({ ...prev, [orderId]: updated.cancel_description || "" }));
+    } catch (err) {
+      setError(apiErrorMessage(err, "Failed to update order status."));
+    } finally {
+      setUpdatingById((prev) => ({ ...prev, [orderId]: false }));
+    }
+  }
+
+  async function handleStatusChange(orderId, value) {
+    const nextStatus = String(value || "").toLowerCase();
+    const previousStatus = String(statusDrafts[orderId] || "pending").toLowerCase();
+    const previousCancel = String(cancelDrafts[orderId] || "");
+
+    let nextCancel = previousCancel;
+    if (nextStatus === "cancelled") {
+      nextCancel = window.prompt("Enter cancel description", previousCancel) ?? "";
+      nextCancel = String(nextCancel).trim();
+      if (!nextCancel) {
+        // Keep previous selection if cancellation reason was not provided.
+        setStatusDrafts((prev) => ({ ...prev, [orderId]: previousStatus }));
+        return;
+      }
+    } else {
+      nextCancel = "";
+    }
+
+    // Optimistic UI update.
+    setStatusDrafts((prev) => ({ ...prev, [orderId]: nextStatus }));
+    setCancelDrafts((prev) => ({ ...prev, [orderId]: nextCancel }));
+    await patchOrderStatus(orderId, nextStatus, nextCancel);
+  }
 
   if (loading) {
     return (
@@ -158,6 +229,7 @@ export default function AdminPaymentPage() {
               <th style={s.th}>Email</th>
               <th style={s.th}>Product</th>
               <th style={s.th}>Status</th>
+              <th style={s.th}>Cancel description</th>
               <th style={s.th}>Payment</th>
               <th style={s.th}>Paid</th>
               <th style={s.th}>Balance</th>
@@ -174,7 +246,43 @@ export default function AdminPaymentPage() {
                   {o.customer_email || "—"}
                 </td>
                 <td style={{ ...s.td, whiteSpace: "normal" }}>{o.product}</td>
-                <td style={s.td}>{o.status}</td>
+                <td style={s.td}>
+                  <div style={orderEdit.cellStack}>
+                    <select
+                      value={statusDrafts[o.id] ?? String(o.status || "pending").toLowerCase()}
+                      onChange={(e) => handleStatusChange(o.id, e.target.value)}
+                      style={orderEdit.select}
+                      disabled={Boolean(updatingById[o.id])}
+                      aria-label={`Update status for order ${o.id}`}
+                    >
+                      {ORDER_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {updatingById[o.id] ? <span style={orderEdit.savingText}>Updating...</span> : null}
+                  </div>
+                </td>
+                <td style={s.td}>
+                  {String(statusDrafts[o.id] ?? o.status).toLowerCase() === "cancelled" ? (
+                    <textarea
+                      value={cancelDrafts[o.id] ?? ""}
+                      onChange={(e) =>
+                        setCancelDrafts((prev) => ({
+                          ...prev,
+                          [o.id]: e.target.value,
+                        }))
+                      }
+                      placeholder="Cancelled because..."
+                      rows={2}
+                      style={orderEdit.textarea}
+                      aria-label={`Cancel description for order ${o.id}`}
+                    />
+                  ) : (
+                    <span style={s.muted}>-</span>
+                  )}
+                </td>
                 <td style={s.td}>
                   <span style={paymentBadgeStyle(o.payment_status)}>{o.payment_status}</span>
                 </td>
@@ -257,5 +365,49 @@ const tableToolbar = {
     background: "#fff",
     fontFamily: "inherit",
     cursor: "pointer",
+  },
+};
+
+const orderEdit = {
+  cellStack: {
+    display: "grid",
+    gap: "8px",
+    minWidth: "150px",
+  },
+  select: {
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "8px 10px",
+    fontSize: "14px",
+    fontWeight: 600,
+    background: "#fff",
+    color: "#111827",
+    fontFamily: "inherit",
+  },
+  saveButton: {
+    border: "1px solid #111827",
+    borderRadius: "8px",
+    background: "#111827",
+    color: "#fff",
+    fontSize: "12px",
+    fontWeight: 700,
+    padding: "6px 10px",
+    fontFamily: "inherit",
+  },
+  savingText: {
+    fontSize: "12px",
+    color: "#6b7280",
+    fontWeight: 600,
+  },
+  textarea: {
+    width: "240px",
+    maxWidth: "100%",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "8px 10px",
+    fontSize: "13px",
+    resize: "vertical",
+    fontFamily: "inherit",
+    lineHeight: 1.4,
   },
 };

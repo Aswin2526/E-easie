@@ -193,6 +193,7 @@ class Order(models.Model):
         default=Status.PENDING,
     )
     shipping_address = models.TextField()
+    cancel_description = models.TextField(blank=True, default="")
     placed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

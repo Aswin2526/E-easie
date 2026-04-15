@@ -14,6 +14,7 @@ urlpatterns = [
     path('admin/users/', views.admin_users_list, name='admin-users-list'),
     path('admin/users/<int:user_id>/', views.admin_user_detail, name='admin-user-detail'),
     path('admin/orders/', views.admin_orders_list, name='admin-orders-list'),
+    path('admin/orders/<int:order_id>/', views.admin_order_detail, name='admin-order-detail'),
     path('admin/vendor-requests/', views.admin_vendor_requests_list, name='admin-vendor-requests-list'),
     path('admin/vendor-requests/<int:request_id>/', views.admin_vendor_request_detail, name='admin-vendor-request-detail'),
     path('admin/products/', views.admin_products_list, name='admin-products-list'),

@@ -44,6 +44,7 @@ export default function App() {
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/orders" element={<AdminPaymentPage />} />
               <Route path="/admin/products" element={<AdminProductsPage />} />
               <Route path="/admin/payment" element={<AdminPaymentPage />} />
               <Route path="/admin/report" element={<AdminReportPage />} />

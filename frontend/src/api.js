@@ -204,6 +204,13 @@ export function fetchAdminOrders() {
   return apiFetch("/api/users/admin/orders/");
 }
 
+export function adminPatchOrder(orderId, { status, cancel_description }) {
+  return apiFetch(`/api/users/admin/orders/${orderId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, cancel_description: cancel_description ?? "" }),
+  });
+}
+
 export function fetchAdminProductsCatalog() {
   return apiFetch("/api/users/admin/products/");
 }

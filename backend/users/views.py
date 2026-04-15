@@ -4,7 +4,7 @@ from datetime import timedelta
 import smtplib
 
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
@@ -409,36 +409,76 @@ def _payment_fields(order):
     }
 
 
+def _admin_order_payload(order):
+    pf = _payment_fields(order)
+    customer = (order.user.first_name or order.user.username) if order.user else (order.guest_email or "Guest")
+    return {
+        "id": order.id,
+        "customer": customer,
+        "customer_email": (order.user.email if order.user else order.guest_email) or "",
+        "product": order.customization.product.name,
+        "status": order.status,
+        "cancel_description": order.cancel_description or "",
+        "quantity": order.quantity,
+        "unit_price": str(order.unit_price),
+        "total_price": str(order.total_price),
+        "placed_at": order.placed_at,
+        "payment_status": pf["payment_status"],
+        "paid_amount": str(pf["paid_amount"]),
+        "balance_due": str(pf["balance_due"]),
+    }
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_orders_list(request):
     if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
-    recent_orders_qs = Order.objects.select_related("user", "customization", "customization__product").order_by(
-        "-placed_at"
-    )[:200]
-    orders = []
-    for o in recent_orders_qs:
-        pf = _payment_fields(o)
-        customer = (o.user.first_name or o.user.username) if o.user else (o.guest_email or "Guest")
-        orders.append(
-            {
-                "id": o.id,
-                "customer": customer,
-                "customer_email": (o.user.email if o.user else o.guest_email) or "",
-                "product": o.customization.product.name,
-                "status": o.status,
-                "quantity": o.quantity,
-                "unit_price": str(o.unit_price),
-                "total_price": str(o.total_price),
-                "placed_at": o.placed_at,
-                "payment_status": pf["payment_status"],
-                "paid_amount": str(pf["paid_amount"]),
-                "balance_due": str(pf["balance_due"]),
-            }
+    recent_orders_qs = (
+        Order.objects.select_related("user", "customization", "customization__product")
+        .filter(Q(user__isnull=True) | Q(user__is_staff=False))
+        .order_by("-placed_at")[:200]
+    )
+    return Response({"orders": [_admin_order_payload(o) for o in recent_orders_qs]})
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def admin_order_detail(request, order_id):
+    if not _is_super_admin_user(request.user):
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        order = (
+            Order.objects.select_related("user", "customization", "customization__product")
+            .filter(Q(user__isnull=True) | Q(user__is_staff=False))
+            .get(pk=order_id)
         )
-    return Response({"orders": orders})
+    except Order.DoesNotExist:
+        return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    raw_status = str(request.data.get("status", "")).strip().lower()
+    if raw_status not in {choice.value for choice in Order.Status}:
+        return Response(
+            {"detail": "Invalid status. Allowed: pending, confirmed, shipped, cancelled."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    raw_cancel = str(request.data.get("cancel_description", "") or "").strip()
+    if raw_status == Order.Status.CANCELLED:
+        if not raw_cancel:
+            return Response(
+                {"detail": "Cancel description is required when status is cancelled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        raw_cancel = ""
+
+    order.status = raw_status
+    order.cancel_description = raw_cancel
+    order.save(update_fields=["status", "cancel_description"])
+    return Response({"order": _admin_order_payload(order), "message": "Order status updated."})
 
 
 @api_view(["GET"])

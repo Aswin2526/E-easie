@@ -13,19 +13,32 @@ import trendingBerryZipKnit from "../assets/trending_berry_zip_knit.png";
 import trendingMaroonFloralCardigan from "../assets/trending_maroon_floral_cardigan.png";
 import trendingTaupeWrapSkirt from "../assets/trending_taupe_wrap_skirt.png";
 
+const trendingWomenFestiveSet =
+    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-e7d1bd40-e819-415f-9dc9-df9cec8710fd.png";
+const trendingMenClassicDaura =
+    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-4fb4fe9f-d914-4352-b61a-2e9ea608695e.png";
+const trendingMenIvoryDaura =
+    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-f66ddec5-7058-45a1-9ee5-d7f8a4d536d2.png";
+const trendingBridalGoldenLehenga =
+    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-94ff44b2-3ee6-4a8c-bb1c-df8cb2932e16.png";
+
 export default function HomePage() {
     const [showAllTrending, setShowAllTrending] = useState(false);
     const baseTrending = useMemo(
         () => [
+            { img: trendingWomenFestiveSet, alt: "Women's Festive Beige Set", title: "Festive Beige Set", price: 12499 },
+            { img: trendingMenClassicDaura, alt: "Men's Classic Daura Set", title: "Classic Daura Set", price: 3699 },
             { img: trendingGreenOffShoulderTop, alt: "Green Off Shoulder Top", title: "Green Off-Shoulder Top", price: 2199 },
             { img: trendingBlackFloralMaxiSkirt, alt: "Black Floral Maxi Skirt", title: "Floral Maxi Skirt", price: 2899 },
-            { img: trendingOliveLongCoat, alt: "Olive Long Coat", title: "Olive Long Coat", price: 6499 },
-            { img: trendingGreenJoggerPants, alt: "Green Jogger Pants", title: "Green Jogger Pants", price: 2399 },
         ],
         []
     );
     const moreTrending = useMemo(
         () => [
+            { img: trendingOliveLongCoat, alt: "Olive Long Coat", title: "Olive Long Coat", price: 6499 },
+            { img: trendingGreenJoggerPants, alt: "Green Jogger Pants", title: "Green Jogger Pants", price: 2399 },
+            { img: trendingMenIvoryDaura, alt: "Men's Ivory Daura Suruwal", title: "Ivory Daura Suruwal", price: 4199 },
+            { img: trendingBridalGoldenLehenga, alt: "Bridal Golden Lehenga", title: "Bridal Golden Lehenga", price: 18999 },
             { img: trendingGreyDrawstringPants, alt: "Grey Drawstring Pants", title: "Grey Drawstring Pants", price: 2599 },
             { img: trendingSkyBlueButtonTop, alt: "Sky Blue Button Top", title: "Sky Blue Button Top", price: 2299 },
             { img: trendingPuffSleeveBlueTop, alt: "Blue Puff Sleeve Top", title: "Blue Puff Sleeve Top", price: 2499 },
