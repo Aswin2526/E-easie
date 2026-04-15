@@ -15,8 +15,6 @@ import trendingTaupeWrapSkirt from "../assets/trending_taupe_wrap_skirt.png";
 
 export default function HomePage() {
     const [showAllTrending, setShowAllTrending] = useState(false);
-    const [newsletterEmail, setNewsletterEmail] = useState("");
-    const [newsletterMessage, setNewsletterMessage] = useState("");
     const baseTrending = useMemo(
         () => [
             { img: trendingGreenOffShoulderTop, alt: "Green Off Shoulder Top", title: "Green Off-Shoulder Top", price: 2199 },
@@ -38,21 +36,6 @@ export default function HomePage() {
         []
     );
     const trendingItems = showAllTrending ? [...baseTrending, ...moreTrending] : baseTrending;
-
-    const handleNewsletterSubmit = (e) => {
-        e.preventDefault();
-        const email = newsletterEmail.trim();
-        if (!email) {
-            setNewsletterMessage("Please enter your email.");
-            return;
-        }
-        const to = "support@e-easie.com";
-        const subject = encodeURIComponent("Newsletter Subscription");
-        const body = encodeURIComponent(`Please subscribe this email: ${email}`);
-        window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-        setNewsletterMessage("Your email app is opening to confirm subscription.");
-        setNewsletterEmail("");
-    };
 
     return (
         <div style={styles.container}>
@@ -154,22 +137,6 @@ export default function HomePage() {
                             <li><a href="https://www.termsfeed.com/blog/sample-faq-template/" target="_blank" rel="noreferrer" style={styles.footerLink}>FAQs</a></li>
                             <li><a href="mailto:support@e-easie.com" style={styles.footerLink}>Contact Us</a></li>
                         </ul>
-                    </div>
-                    <div>
-                        <h4 style={styles.footerHeading}>Newsletter</h4>
-                        <p style={styles.footerText}>Subscribe for latest trends and offers.</p>
-                        <form onSubmit={handleNewsletterSubmit} style={styles.newsletterForm}>
-                            <input
-                                type="email"
-                                placeholder="Your email"
-                                value={newsletterEmail}
-                                onChange={(e) => setNewsletterEmail(e.target.value)}
-                                style={styles.newsletterInput}
-                                aria-label="Newsletter email"
-                            />
-                            <button type="submit" style={styles.newsletterButton}>Subscribe</button>
-                        </form>
-                        {newsletterMessage ? <p style={styles.newsletterMessage}>{newsletterMessage}</p> : null}
                     </div>
                 </div>
                 <p style={styles.copyright}>© 2024 E-easie. All rights reserved.</p>
@@ -409,32 +376,6 @@ const styles = {
         maxWidth: "200px",
         lineHeight: "1.5",
         marginBottom: "10px"
-    },
-    newsletterForm: {
-        display: "flex",
-        gap: "8px",
-        alignItems: "center",
-        flexWrap: "wrap",
-    },
-    newsletterInput: {
-        border: "1px solid #d3d3d3",
-        borderRadius: "6px",
-        padding: "8px 10px",
-        minWidth: "180px",
-    },
-    newsletterButton: {
-        border: "none",
-        borderRadius: "6px",
-        padding: "8px 12px",
-        background: "#1a1a1a",
-        color: "#fff",
-        cursor: "pointer",
-    },
-    newsletterMessage: {
-        marginTop: "8px",
-        color: "#444",
-        maxWidth: "260px",
-        lineHeight: "1.4",
     },
     copyright: {
         textAlign: "center",

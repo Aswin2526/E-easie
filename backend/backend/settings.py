@@ -21,7 +21,17 @@ try:
 
     load_dotenv(BASE_DIR / ".env")
 except ImportError:
-    pass
+    env_path = BASE_DIR / ".env"
+    if env_path.exists():
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
 
 
 # Quick-start development settings - unsuitable for production
@@ -206,9 +216,9 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1").lower() in ("1", "true", "yes")
-EMAIL_HOST_USER = os.environ.get("EMAIL_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_PASS", "")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@example.com")
+EMAIL_HOST_USER = os.environ.get("EMAIL_USER", "").strip()
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_PASS", "").strip()
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "noreply@example.com").strip()
 if EMAIL_HOST_PASSWORD and " " in EMAIL_HOST_PASSWORD:
     raise ValueError("EMAIL_PASS must be your Gmail App Password with no spaces.")
 

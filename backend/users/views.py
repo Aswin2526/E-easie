@@ -1,6 +1,7 @@
 from decimal import Decimal
 import random
 from datetime import timedelta
+import smtplib
 
 from django.db import transaction
 from django.db.models import Count, Sum
@@ -26,13 +27,24 @@ from .serializers import (
     VendorRegistrationRequestCreateSerializer,
 )
 
+SUPER_ADMIN_EMAIL = "admin@eeasie.com"
+
+
+def _is_super_admin_email(email):
+    return (email or "").strip().lower() == SUPER_ADMIN_EMAIL
+
+
+def _is_super_admin_user(user):
+    return _is_super_admin_email(getattr(user, "email", ""))
+
+
 @api_view(['POST'])
 def register_user(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
         token, _ = Token.objects.get_or_create(user=user)
-        role = "admin" if user.is_staff else "user"
+        role = "admin" if _is_super_admin_user(user) else "user"
         return Response(
             {
                 "message": "User registered successfully",
@@ -60,7 +72,7 @@ def login_user(request):
         user_auth = authenticate(username=user.username, password=password)
         if user_auth is not None:
             token, _ = Token.objects.get_or_create(user=user_auth)
-            role = "admin" if user_auth.is_staff else "user"
+            role = "admin" if _is_super_admin_user(user_auth) else "user"
             return Response(
                 {
                     "message": "Login successful",
@@ -80,6 +92,8 @@ def _send_plain_email(subject, message, recipients):
     sender = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "")
     if not sender:
         raise RuntimeError("Email sender is not configured.")
+    if "yourgmail" in sender.lower():
+        raise RuntimeError("Email sender is still using placeholder values. Update backend/.env SMTP credentials.")
     send_mail(subject, message, sender, recipients, fail_silently=False)
 
 
@@ -104,16 +118,30 @@ def forgot_password_request_otp(request):
         otp = f"{random.randint(0, 999999):06d}"
         expires_at = timezone.now() + timedelta(minutes=10)
         PasswordResetOTP.objects.create(email=email, otp_code=otp, expires_at=expires_at)
-        _send_plain_email(
-            "Your OTP for password reset",
-            (
-                f"Hello {user.first_name or user.username},\n\n"
-                f"Your OTP code is: {otp}\n"
-                "This code is valid for 10 minutes.\n\n"
-                "If you did not request this, you can ignore this email."
-            ),
-            [email],
-        )
+        try:
+            _send_plain_email(
+                "Your OTP for password reset",
+                (
+                    f"Hello {user.first_name or user.username},\n\n"
+                    f"Your OTP code is: {otp}\n"
+                    "This code is valid for 10 minutes.\n\n"
+                    "If you did not request this, you can ignore this email."
+                ),
+                [email],
+            )
+        except Exception as exc:
+            detail = "Could not send OTP email. Check SMTP settings in backend/.env."
+            if isinstance(exc, smtplib.SMTPAuthenticationError):
+                detail = (
+                    "SMTP authentication failed. Verify EMAIL_USER and Gmail App Password "
+                    "(generate a new 16-character App Password, no spaces)."
+                )
+            return Response(
+                {
+                    "detail": detail
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     return Response(
         {
@@ -178,7 +206,7 @@ def vendor_request_create(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_vendor_requests_list(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
     rows = []
@@ -203,7 +231,7 @@ def admin_vendor_requests_list(request):
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def admin_vendor_request_detail(request, request_id):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
     try:
@@ -228,15 +256,29 @@ def admin_vendor_request_detail(request, request_id):
     ):
         decision_text = "approved" if new_status == VendorRegistrationRequest.Status.APPROVED else "declined"
         note_text = f"\n\nAdmin note:\n{admin_note}" if admin_note else ""
-        _send_plain_email(
-            "Vendor registration request update",
-            (
-                f"Hello {req.name},\n\n"
-                f"Your vendor registration request for {req.company_name} has been {decision_text}.{note_text}\n\n"
-                "Thank you."
-            ),
-            [req.email],
-        )
+        try:
+            _send_plain_email(
+                "Vendor registration request update",
+                (
+                    f"Hello {req.name},\n\n"
+                    f"Your vendor registration request for {req.company_name} has been {decision_text}.{note_text}\n\n"
+                    "Thank you."
+                ),
+                [req.email],
+            )
+        except Exception as exc:
+            detail = "Vendor status updated, but notification email could not be sent. Check SMTP settings in backend/.env."
+            if isinstance(exc, smtplib.SMTPAuthenticationError):
+                detail = (
+                    "Vendor status updated, but SMTP authentication failed. "
+                    "Verify EMAIL_USER and Gmail App Password."
+                )
+            return Response(
+                {
+                    "detail": detail
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
     return Response(
         {
@@ -250,7 +292,7 @@ def admin_vendor_request_detail(request, request_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
-    role = "admin" if request.user.is_staff else "user"
+    role = "admin" if _is_super_admin_user(request.user) else "user"
     return Response(
         {
             "id": request.user.id,
@@ -267,7 +309,7 @@ def me(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_dashboard(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
     totals = {
@@ -319,7 +361,7 @@ def _recent_users_payload():
             "id": u.id,
             "name": (u.first_name or u.username),
             "email": u.email,
-            "role": "admin" if u.is_staff else "user",
+            "role": "admin" if _is_super_admin_user(u) else "user",
             "is_staff": u.is_staff,
             "is_superuser": u.is_superuser,
             "is_active": u.is_active,
@@ -332,7 +374,7 @@ def _recent_users_payload():
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_users_list(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
     return Response({"users": _recent_users_payload()})
 
@@ -370,7 +412,7 @@ def _payment_fields(order):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_orders_list(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
     recent_orders_qs = Order.objects.select_related("user", "customization", "customization__product").order_by(
@@ -402,7 +444,7 @@ def admin_orders_list(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_products_list(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
     products = []
@@ -431,7 +473,7 @@ def admin_products_list(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_report(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
     orders_by_status = list(
@@ -473,7 +515,7 @@ def admin_report(request):
 
 
 def _admin_user_or_403(request):
-    if not request.user.is_staff:
+    if not _is_super_admin_user(request.user):
         return None, Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
     return request.user, None
 
