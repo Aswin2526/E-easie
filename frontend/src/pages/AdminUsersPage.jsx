@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { adminDeleteUser, adminPatchUser, fetchAdminUsers } from "../api";
+import { adminPatchUser, fetchAdminUsers } from "../api";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
 import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
 
@@ -47,39 +47,19 @@ export default function AdminUsersPage() {
   }, [users, searchQuery]);
 
   const myId = me?.id;
-  const amSuperuser = Boolean(me?.is_superuser);
-
-  const handleToggleBlock = async (u) => {
+  const handleSetActive = async (u, isActive) => {
     if (userActionBusyId != null) return;
-    const next = !u.is_active;
-    if (!next && u.is_superuser) return;
+    if (!isActive && u.is_superuser) return;
     setUserActionMessage(null);
     setUserActionBusyId(u.id);
     try {
-      await adminPatchUser(u.id, next);
+      await adminPatchUser(u.id, isActive);
       await refreshUsers();
-      setUserActionMessage(next ? `Unblocked ${u.name || u.email}.` : `Blocked ${u.name || u.email}.`);
+      setUserActionMessage(
+        isActive ? `Set ${u.name || u.email} to Active.` : `Set ${u.name || u.email} to Inactive.`,
+      );
     } catch (err) {
       setUserActionMessage(apiErrorMessage(err, "Could not update user."));
-    } finally {
-      setUserActionBusyId(null);
-    }
-  };
-
-  const handleDeleteUser = async (u) => {
-    if (userActionBusyId != null) return;
-    const ok = window.confirm(
-      `Permanently delete user "${u.name || u.email}"? Their wishlist and cart will be removed. Orders stay on record without this account.`,
-    );
-    if (!ok) return;
-    setUserActionMessage(null);
-    setUserActionBusyId(u.id);
-    try {
-      await adminDeleteUser(u.id);
-      await refreshUsers();
-      setUserActionMessage(`Deleted ${u.name || u.email}.`);
-    } catch (err) {
-      setUserActionMessage(apiErrorMessage(err, "Could not delete user."));
     } finally {
       setUserActionBusyId(null);
     }
@@ -129,18 +109,29 @@ export default function AdminUsersPage() {
               const isSelf = myId != null && u.id === myId;
               const busy = userActionBusyId === u.id;
               const canBlock = !isSelf && !u.is_superuser;
-              const canDelete = !isSelf && !u.is_superuser && (!u.is_staff || amSuperuser);
               return (
                 <tr key={u.id} style={u.is_active === false ? s.rowInactive : undefined}>
                   <td style={s.td}>{u.name}</td>
                   <td style={s.td}>{u.email || "-"}</td>
                   <td style={s.td}>{u.role}</td>
                   <td style={s.td}>
-                    {u.is_active === false ? (
-                      <span style={s.statusBlocked}>Blocked</span>
-                    ) : (
-                      <span style={s.statusActive}>Active</span>
-                    )}
+                    <select
+                      style={{
+                        ...statusSelect,
+                        color: u.is_active ? "#15803d" : "#b91c1c",
+                      }}
+                      value={u.is_active ? "active" : "inactive"}
+                      disabled={busy || isSelf}
+                      onChange={(e) => handleSetActive(u, e.target.value === "active")}
+                      aria-label={`Status for ${u.name || u.email}`}
+                    >
+                      <option value="active" style={{ color: "#15803d" }}>
+                        Active
+                      </option>
+                      <option value="inactive" style={{ color: "#b91c1c" }}>
+                        Inactive
+                      </option>
+                    </select>
                   </td>
                   <td style={s.td}>{formatDateTime(u.date_joined)}</td>
                   <td style={s.tdActions}>
@@ -148,19 +139,14 @@ export default function AdminUsersPage() {
                       {canBlock ? (
                         <button
                           type="button"
-                          style={u.is_active ? s.btnWarn : s.btnSecondary}
+                          style={blockBtn}
                           disabled={busy}
-                          onClick={() => handleToggleBlock(u)}
+                          onClick={() => handleSetActive(u, false)}
                         >
-                          {busy ? "…" : u.is_active ? "Block" : "Unblock"}
+                          {busy ? "…" : "Block"}
                         </button>
                       ) : null}
-                      {canDelete ? (
-                        <button type="button" style={s.btnDanger} disabled={busy} onClick={() => handleDeleteUser(u)}>
-                          Delete
-                        </button>
-                      ) : null}
-                      {!canBlock && !canDelete && !isSelf ? <span style={s.actionMuted}>—</span> : null}
+                      {!canBlock && !isSelf ? <span style={s.actionMuted}>—</span> : null}
                       {isSelf ? <span style={s.actionMuted}>You</span> : null}
                     </div>
                   </td>
@@ -181,4 +167,22 @@ const inner = {
   margin: "0 auto",
   width: "100%",
   boxSizing: "border-box",
+};
+
+const statusSelect = {
+  minWidth: "96px",
+  border: "1px solid #d1d5db",
+  borderRadius: "8px",
+  padding: "6px 10px",
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "#1f2937",
+  background: "#fff",
+};
+
+const blockBtn = {
+  ...s.btnWarn,
+  color: "#fff",
+  background: "#000",
+  border: "1px solid #000",
 };

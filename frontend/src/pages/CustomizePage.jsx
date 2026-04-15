@@ -382,10 +382,7 @@ export default function CustomizePage() {
     try {
       await addToCart(payload);
       window.dispatchEvent(new Event("cart-updated"));
-      toast.success(
-        "Added to cart",
-        `Your custom design · Quantity ${orderQty}. Open your cart to review or checkout.`
-      );
+      toast.success({ title: "Added to cart" });
     } catch (err) {
       toast.error("Could not add to cart", err.message || "Please try again in a moment.");
     } finally {

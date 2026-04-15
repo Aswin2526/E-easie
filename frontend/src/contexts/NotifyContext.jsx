@@ -12,12 +12,19 @@ const VARIANT_META = {
 
 function pack(variant, a, b) {
   if (a && typeof a === "object") {
-    return { variant, duration: 5200, ...a, variant };
+    return {
+      variant,
+      duration: 5200,
+      ...a,
+      title: String(a.title ?? a.message ?? "").trim(),
+      message: "",
+      variant,
+    };
   }
   if (b != null && String(b).length) {
-    return { variant, title: String(a), message: String(b), duration: 5200 };
+    return { variant, title: String(a ?? "").trim(), message: "", duration: 5200 };
   }
-  return { variant, title: "", message: String(a ?? ""), duration: 5200 };
+  return { variant, title: String(a ?? "").trim(), message: "", duration: 5200 };
 }
 
 function Toast({ item, onDismiss }) {
@@ -140,9 +147,14 @@ export function NotifyProvider({ children }) {
   const notify = useCallback(
     (opts) => {
       if (typeof opts === "string") {
-        return push({ variant: "info", title: "", message: opts, duration: 5200 });
+        return push({ variant: "info", title: String(opts).trim(), message: "", duration: 5200 });
       }
-      return push({ duration: 5200, ...opts });
+      return push({
+        duration: 5200,
+        ...opts,
+        title: String(opts?.title ?? opts?.message ?? "").trim(),
+        message: "",
+      });
     },
     [push]
   );

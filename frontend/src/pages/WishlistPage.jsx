@@ -48,10 +48,7 @@ export default function WishlistPage() {
     try {
       await addToCart({ product: product.id, quantity: 1 });
       window.dispatchEvent(new Event("cart-updated"));
-      toast.success(
-        "Added to cart",
-        `${product.name} — adjust quantity in your cart if you need more.`
-      );
+      toast.success({ title: "Added to cart" });
     } catch (err) {
       toast.error("Cart", err.message || "Could not add this item to your cart.");
     }

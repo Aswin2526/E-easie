@@ -20,6 +20,7 @@ import AdminReportPage from "./pages/AdminReportPage";
 import CartPage from "./pages/CartPage";
 import WishlistPage from "./pages/WishlistPage";
 import PaymentReceiptPage from "./pages/PaymentReceiptPage";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/cart" element={<CartPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
             <Route path="/payment-receipt" element={<PaymentReceiptPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
           <Route element={<RequireAdmin />}>
             <Route element={<AdminLayout />}>

@@ -131,10 +131,7 @@ export default function CategoryPage() {
     try {
       await addToCart({ product: p.id, quantity: 1 });
       window.dispatchEvent(new Event("cart-updated"));
-      toast.success(
-        "Added to cart",
-        `${p.name} — open your cart to change quantity (+/−) before checkout.`
-      );
+      toast.success({ title: "Added to cart" });
     } catch (err) {
       toast.error("Could not add to cart", err.message || "Something went wrong. Please try again.");
     }

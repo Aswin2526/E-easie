@@ -65,7 +65,7 @@ export default function AdminProductsPage() {
               <th style={s.th}>Name</th>
               <th style={s.th}>Type</th>
               <th style={s.th}>Price</th>
-              <th style={s.th}>Status</th>
+              <th style={s.th}>Quantity</th>
               <th style={s.th}>Slug</th>
             </tr>
           </thead>
@@ -83,7 +83,7 @@ export default function AdminProductsPage() {
                 <td style={s.td}>{p.product_type}</td>
                 <td style={s.td}>{formatNPR(p.base_price)}</td>
                 <td style={s.td}>
-                  {p.is_active ? <span style={s.statusActive}>Active</span> : <span style={s.statusBlocked}>Inactive</span>}
+                  <span style={qtyValue}>{Number.isFinite(Number(p.quantity)) ? Number(p.quantity) : 0}</span>
                 </td>
                 <td style={{ ...s.td, whiteSpace: "normal" }}>{p.slug}</td>
               </tr>
@@ -102,4 +102,10 @@ const inner = {
   margin: "0 auto",
   width: "100%",
   boxSizing: "border-box",
+};
+
+const qtyValue = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: "#111827",
 };

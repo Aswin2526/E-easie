@@ -57,7 +57,7 @@ function AdminSidebar() {
   );
 }
 
-function AdminTopBar({ me, title, searchQuery, setSearchQuery }) {
+function AdminTopBar({ me, title }) {
   const navigate = useNavigate();
   const name = (me?.user?.name && String(me.user.name).trim()) || me?.user?.email || "admin";
   const displayName = name.includes("@") ? name.split("@")[0] : name;
@@ -72,38 +72,7 @@ function AdminTopBar({ me, title, searchQuery, setSearchQuery }) {
   return (
     <header style={styles.topNav}>
       <h1 style={styles.topNavTitle}>{title}</h1>
-      <div style={styles.searchWrap}>
-        <label style={styles.searchBar} htmlFor="admin-global-search">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9ca3af"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            id="admin-global-search"
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by order ID, name, or email…"
-            style={styles.searchInput}
-          />
-        </label>
-      </div>
       <div style={styles.topNavRight}>
-        <button type="button" style={styles.iconBtn} aria-label="Notifications">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-        </button>
         <div style={styles.userBlock}>
           <div style={styles.userAvatar} aria-hidden>
             {initial}
@@ -174,8 +143,6 @@ export default function AdminLayout() {
         <AdminTopBar
           me={me}
           title={title}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
         />
         <div style={styles.pageContent}>
           <Outlet context={outletContext} />
@@ -265,6 +232,7 @@ const styles = {
   topNav: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: "16px",
     flexWrap: "wrap",
     background: "#fff",
@@ -280,50 +248,12 @@ const styles = {
     color: "#111827",
     flexShrink: 0,
   },
-  searchWrap: {
-    flex: 1,
-    display: "flex",
-    justifyContent: "center",
-    minWidth: "200px",
-    padding: "0 12px",
-  },
-  searchBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    width: "100%",
-    maxWidth: "520px",
-    padding: "10px 18px",
-    borderRadius: "999px",
-    border: "1px solid #e5e7eb",
-    background: "#fff",
-    boxSizing: "border-box",
-  },
-  searchInput: {
-    flex: 1,
-    border: "none",
-    outline: "none",
-    fontSize: "14px",
-    color: "#111827",
-    background: "transparent",
-    minWidth: 0,
-    fontFamily: "inherit",
-  },
   topNavRight: {
     display: "flex",
     alignItems: "center",
     gap: "14px",
     flexShrink: 0,
-  },
-  iconBtn: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "8px",
-    border: "none",
-    background: "transparent",
-    borderRadius: "10px",
-    cursor: "pointer",
+    marginLeft: "auto",
   },
   logoutBtn: {
     fontSize: "13px",

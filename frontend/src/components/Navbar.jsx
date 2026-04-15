@@ -145,7 +145,9 @@ export default function Navbar() {
         </button>
         {!authRoute && token ? (
           <>
-            <span style={styles.rolePill}>{`Hi, ${displayName}`}</span>
+            <button type="button" onClick={() => navigate("/profile")} style={styles.rolePillBtn}>
+              {`Hi, ${displayName}`}
+            </button>
             {role === "admin" ? (
               <NavLink to="/admin/dashboard" style={styles.authLink}>
                 Dashboard
@@ -268,7 +270,7 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
   },
-  rolePill: {
+  rolePillBtn: {
     background: "#d8ecff",
     color: "#123a69",
     borderRadius: "999px",
@@ -276,6 +278,7 @@ const styles = {
     fontSize: "12px",
     fontWeight: 700,
     border: "1px solid #b7d9fb",
+    cursor: "pointer",
   },
   logoutBtn: {
     border: "1px solid #b7d9fb",
