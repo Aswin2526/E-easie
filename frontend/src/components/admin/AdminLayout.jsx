@@ -4,14 +4,14 @@ import { clearAuth, fetchCurrentUser } from "../../api";
 
 const SIDEBAR_ITEMS = [
   { label: "Dashboard", to: "/admin/dashboard", end: true },
-  { label: "Users", to: "/admin/users" },
+  { label: "Customers", to: "/admin/users" },
   { label: "Products", to: "/admin/products" },
   { label: "Payment", to: "/admin/payment" },
   { label: "Report", to: "/admin/report" },
 ];
 
 const TITLE_BY_PATH = [
-  [/^\/admin\/users\/?$/, "Users"],
+  [/^\/admin\/users\/?$/, "Customers"],
   [/^\/admin\/products\/?$/, "Products"],
   [/^\/admin\/payment\/?$/, "Payment"],
   [/^\/admin\/report\/?$/, "Report"],

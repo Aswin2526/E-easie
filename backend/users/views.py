@@ -1,7 +1,12 @@
 from decimal import Decimal
+import random
+from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import Count, Sum
+from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
@@ -10,7 +15,16 @@ from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from shop.models import Customization, Order, Product
-from .serializers import RegisterSerializer, LoginSerializer
+from .models import PasswordResetOTP, VendorRegistrationRequest
+from .serializers import (
+    ForgotPasswordRequestSerializer,
+    ForgotPasswordResetSerializer,
+    ForgotPasswordVerifySerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    VendorRegistrationRequestAdminUpdateSerializer,
+    VendorRegistrationRequestCreateSerializer,
+)
 
 @api_view(['POST'])
 def register_user(request):
@@ -62,6 +76,177 @@ def login_user(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+def _send_plain_email(subject, message, recipients):
+    sender = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "")
+    if not sender:
+        raise RuntimeError("Email sender is not configured.")
+    send_mail(subject, message, sender, recipients, fail_silently=False)
+
+
+def _latest_valid_otp(email):
+    now = timezone.now()
+    return (
+        PasswordResetOTP.objects.filter(email=email, is_used=False, expires_at__gt=now)
+        .order_by("-created_at")
+        .first()
+    )
+
+
+@api_view(["POST"])
+def forgot_password_request_otp(request):
+    serializer = ForgotPasswordRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data["email"].strip().lower()
+
+    user = User.objects.filter(email__iexact=email).first()
+    if user:
+        PasswordResetOTP.objects.filter(email=email, is_used=False).update(is_used=True)
+        otp = f"{random.randint(0, 999999):06d}"
+        expires_at = timezone.now() + timedelta(minutes=10)
+        PasswordResetOTP.objects.create(email=email, otp_code=otp, expires_at=expires_at)
+        _send_plain_email(
+            "Your OTP for password reset",
+            (
+                f"Hello {user.first_name or user.username},\n\n"
+                f"Your OTP code is: {otp}\n"
+                "This code is valid for 10 minutes.\n\n"
+                "If you did not request this, you can ignore this email."
+            ),
+            [email],
+        )
+
+    return Response(
+        {
+            "message": "If this email is registered, an OTP has been sent.",
+        }
+    )
+
+
+@api_view(["POST"])
+def forgot_password_verify_otp(request):
+    serializer = ForgotPasswordVerifySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data["email"].strip().lower()
+    otp = serializer.validated_data["otp"].strip()
+
+    rec = _latest_valid_otp(email)
+    if not rec or rec.otp_code != otp:
+        return Response({"detail": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"message": "OTP verified."})
+
+
+@api_view(["POST"])
+def forgot_password_reset(request):
+    serializer = ForgotPasswordResetSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data["email"].strip().lower()
+    otp = serializer.validated_data["otp"].strip()
+    password = serializer.validated_data["password"]
+
+    rec = _latest_valid_otp(email)
+    if not rec or rec.otp_code != otp:
+        return Response({"detail": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    user.set_password(password)
+    user.save(update_fields=["password"])
+    rec.is_used = True
+    rec.save(update_fields=["is_used"])
+    Token.objects.filter(user=user).delete()
+    return Response({"message": "Password reset successful. Please log in again."})
+
+
+@api_view(["POST"])
+def vendor_request_create(request):
+    serializer = VendorRegistrationRequestCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    req = serializer.save()
+    return Response(
+        {
+            "id": req.id,
+            "status": req.status,
+            "message": "Vendor registration request submitted.",
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_vendor_requests_list(request):
+    if not request.user.is_staff:
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    rows = []
+    for r in VendorRegistrationRequest.objects.all().order_by("-created_at")[:200]:
+        rows.append(
+            {
+                "id": r.id,
+                "name": r.name,
+                "email": r.email,
+                "company_name": r.company_name,
+                "details": r.details,
+                "status": r.status,
+                "admin_note": r.admin_note,
+                "created_at": r.created_at,
+                "updated_at": r.updated_at,
+                "decided_at": r.decided_at,
+            }
+        )
+    return Response({"requests": rows})
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def admin_vendor_request_detail(request, request_id):
+    if not request.user.is_staff:
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        req = VendorRegistrationRequest.objects.get(pk=request_id)
+    except VendorRegistrationRequest.DoesNotExist:
+        return Response({"detail": "Vendor request not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = VendorRegistrationRequestAdminUpdateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    new_status = serializer.validated_data["status"]
+    admin_note = serializer.validated_data.get("admin_note", "")
+    old_status = req.status
+
+    req.status = new_status
+    req.admin_note = admin_note
+    req.decided_at = timezone.now()
+    req.save(update_fields=["status", "admin_note", "decided_at", "updated_at"])
+
+    if old_status != new_status and new_status in (
+        VendorRegistrationRequest.Status.APPROVED,
+        VendorRegistrationRequest.Status.DECLINED,
+    ):
+        decision_text = "approved" if new_status == VendorRegistrationRequest.Status.APPROVED else "declined"
+        note_text = f"\n\nAdmin note:\n{admin_note}" if admin_note else ""
+        _send_plain_email(
+            "Vendor registration request update",
+            (
+                f"Hello {req.name},\n\n"
+                f"Your vendor registration request for {req.company_name} has been {decision_text}.{note_text}\n\n"
+                "Thank you."
+            ),
+            [req.email],
+        )
+
+    return Response(
+        {
+            "id": req.id,
+            "status": req.status,
+            "message": "Vendor request updated.",
+        }
+    )
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
@@ -110,11 +295,19 @@ def admin_dashboard(request):
         for o in recent_orders_qs
     ]
 
+    order_status_counts = {choice.value: 0 for choice in Order.Status}
+    for row in Order.objects.values("status").annotate(c=Count("id")):
+        st = row["status"]
+        if st in order_status_counts:
+            order_status_counts[st] = row["c"]
+    order_status_counts["returned"] = 0
+
     return Response(
         {
             "totals": totals,
             "recent_users": recent_users,
             "recent_orders": recent_orders,
+            "order_status_counts": order_status_counts,
         }
     )
 

@@ -12,6 +12,7 @@ import CustomizePage from "./pages/CustomizePage";
 import TrackOrderPage from "./pages/TrackOrderPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminProductsPage from "./pages/AdminProductsPage";
@@ -51,6 +52,7 @@ export default function App() {
         </Route>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Route>
       </Routes>

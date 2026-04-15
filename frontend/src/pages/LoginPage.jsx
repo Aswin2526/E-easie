@@ -77,6 +77,9 @@ export default function LoginPage() {
           {loading ? "Please wait…" : "Login"}
         </button>
 
+        <p className="auth-ui-footer" style={{ ...authFooterStyle(), marginTop: 12 }}>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
         <p className="auth-ui-footer" style={authFooterStyle()}>
           Don’t have an account? <Link to="/register">Register</Link>
         </p>

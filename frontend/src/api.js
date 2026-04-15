@@ -148,6 +148,34 @@ export function loginUser(email, password) {
   });
 }
 
+export function requestForgotPasswordOtp(email) {
+  return apiFetch("/api/users/forgot-password/request-otp/", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function verifyForgotPasswordOtp(email, otp) {
+  return apiFetch("/api/users/forgot-password/verify-otp/", {
+    method: "POST",
+    body: JSON.stringify({ email, otp }),
+  });
+}
+
+export function resetPasswordWithOtp({ email, otp, password, password2 }) {
+  return apiFetch("/api/users/forgot-password/reset/", {
+    method: "POST",
+    body: JSON.stringify({ email, otp, password, password2 }),
+  });
+}
+
+export function createVendorRequest({ name, email, company_name, details }) {
+  return apiFetch("/api/users/vendor-requests/", {
+    method: "POST",
+    body: JSON.stringify({ name, email, company_name, details }),
+  });
+}
+
 export function registerUser({ name, email, password, password2 }) {
   return apiFetch("/api/users/register/", {
     method: "POST",
@@ -182,6 +210,17 @@ export function fetchAdminProductsCatalog() {
 
 export function fetchAdminReport() {
   return apiFetch("/api/users/admin/report/");
+}
+
+export function fetchAdminVendorRequests() {
+  return apiFetch("/api/users/admin/vendor-requests/");
+}
+
+export function adminUpdateVendorRequest(requestId, { status, admin_note }) {
+  return apiFetch(`/api/users/admin/vendor-requests/${requestId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, admin_note: admin_note ?? "" }),
+  });
 }
 
 export function adminPatchUser(userId, isActive) {

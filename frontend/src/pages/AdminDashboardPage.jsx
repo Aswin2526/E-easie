@@ -3,8 +3,6 @@ import { fetchAdminDashboard } from "../api";
 import { formatNPR } from "../currency";
 import { apiErrorMessage } from "../admin/adminUtils";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 function timeAgo(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -21,6 +19,50 @@ function timeAgo(iso) {
     return `${days} day${days === 1 ? "" : "s"} ago`;
   }
   return d.toLocaleDateString();
+}
+
+function countStatusFromRecent(recentOrders) {
+  const acc = { pending: 0, confirmed: 0, shipped: 0, cancelled: 0, returned: 0 };
+  for (const o of recentOrders || []) {
+    const st = String(o.status || "").toLowerCase();
+    if (st === "pending") acc.pending += 1;
+    else if (st === "confirmed") acc.confirmed += 1;
+    else if (st === "shipped") acc.shipped += 1;
+    else if (st === "cancelled") acc.cancelled += 1;
+  }
+  return acc;
+}
+
+function buildDonutSlices(counts) {
+  const pending = Number(counts?.pending) || 0;
+  const confirmedDb = Number(counts?.confirmed) || 0;
+  const shipped = Number(counts?.shipped) || 0;
+  const cancelled = Number(counts?.cancelled) || 0;
+  const returned = Number(counts?.returned) || 0;
+  const confirmed = confirmedDb + shipped;
+  return [
+    { key: "pending", label: "Pending", count: pending, color: "#f59e0b" },
+    { key: "confirmed", label: "Confirmed", count: confirmed, color: "#7c3aed" },
+    { key: "cancelled", label: "Cancelled", count: cancelled, color: "#ef4444" },
+    { key: "returned", label: "Returned", count: returned, color: "#64748b" },
+  ];
+}
+
+function donutConicGradient(slices) {
+  const total = slices.reduce((a, s) => a + s.count, 0);
+  if (total <= 0) return null;
+  let deg = 0;
+  const parts = [];
+  for (const s of slices) {
+    if (s.count <= 0) continue;
+    const span = (s.count / total) * 360;
+    const start = deg;
+    const end = deg + span;
+    parts.push(`${s.color} ${start}deg ${end}deg`);
+    deg = end;
+  }
+  if (parts.length === 0) return null;
+  return `conic-gradient(from -90deg, ${parts.join(", ")})`;
 }
 
 export default function AdminDashboardPage() {
@@ -53,42 +95,18 @@ export default function AdminDashboardPage() {
     return recentOrders.reduce((acc, o) => acc + Number(o.total_price || 0), 0);
   }, [recentOrders]);
 
-  const chartBars = useMemo(() => {
-    const now = new Date();
-    const bars = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      bars.push({
-        key,
-        label: MONTHS[d.getMonth()],
-        confirmed: 0,
-        pending: 0,
-      });
+  const statusCounts = useMemo(() => {
+    if (data?.order_status_counts && typeof data.order_status_counts === "object") {
+      return data.order_status_counts;
     }
-    const keyIndex = Object.fromEntries(bars.map((b, idx) => [b.key, idx]));
-    for (const o of recentOrders) {
-      if (!o.placed_at) continue;
-      const dt = new Date(o.placed_at);
-      if (Number.isNaN(dt.getTime())) continue;
-      const k = `${dt.getFullYear()}-${dt.getMonth()}`;
-      const idx = keyIndex[k];
-      if (idx === undefined) continue;
-      const amt = Number(o.total_price || 0);
-      const st = String(o.status || "").toLowerCase();
-      if (st === "shipped" || st === "confirmed") {
-        bars[idx].confirmed += amt;
-      } else {
-        bars[idx].pending += amt;
-      }
-    }
-    const maxVal = Math.max(1, ...bars.map((b) => b.confirmed + b.pending));
-    return bars.map((b) => ({
-      ...b,
-      confirmedPct: (b.confirmed / maxVal) * 100,
-      pendingPct: (b.pending / maxVal) * 100,
-    }));
-  }, [recentOrders]);
+    return countStatusFromRecent(recentOrders);
+  }, [data?.order_status_counts, recentOrders]);
+
+  const donutSlices = useMemo(() => buildDonutSlices(statusCounts), [statusCounts]);
+
+  const donutTotal = useMemo(() => donutSlices.reduce((a, s) => a + s.count, 0), [donutSlices]);
+
+  const donutBackground = useMemo(() => donutConicGradient(donutSlices), [donutSlices]);
 
   const salesOverviewRows = useMemo(() => {
     return [...recentOrders]
@@ -142,7 +160,7 @@ export default function AdminDashboardPage() {
             <span style={styles.statIcon}>⚡</span>
           </div>
           <p style={styles.statValue}>{totals.users ?? 0}</p>
-          <p style={styles.statLabel}>Registered users</p>
+          <p style={styles.statLabel}>Registered customers</p>
         </article>
         <article style={styles.statCard}>
           <div style={{ ...styles.statIconWrap, background: "#fee2e2" }}>
@@ -153,91 +171,73 @@ export default function AdminDashboardPage() {
         </article>
       </div>
 
-      <div className="admin-dashboard-main-grid" style={styles.mainGrid}>
-        <section style={styles.chartPanel}>
-          <div style={styles.chartHeader}>
-            <h2 style={styles.panelTitle}>Order summary</h2>
-            <div style={styles.legend}>
-              <span style={styles.legendItem}>
-                <span style={{ ...styles.legendSwatch, background: "#7c3aed" }} /> Confirmed / shipped
-              </span>
-              <span style={styles.legendItem}>
-                <span style={{ ...styles.legendSwatch, background: "#2563eb" }} /> Pending / other
-              </span>
+      <section className="admin-dashboard-main-grid" style={styles.donutPanel}>
+        <div style={styles.donutHeader}>
+          <h2 style={styles.panelTitle}>Orders by status</h2>
+          <p style={styles.donutHint}>
+            Confirmed includes shipped orders. Returned is reserved for future returns tracking.
+          </p>
+        </div>
+        <div style={styles.donutBody}>
+          <div style={styles.donutChartWrap}>
+            <div
+              style={{
+                ...styles.donutRing,
+                background: donutBackground || "#e2e8f0",
+              }}
+              aria-hidden
+            />
+            <div style={styles.donutHole}>
+              <p style={styles.donutTotal}>{donutTotal}</p>
+              <p style={styles.donutTotalLabel}>Orders</p>
             </div>
           </div>
-          <div style={styles.chartArea}>
-            <div style={styles.yAxis}>
-              {[90, 60, 30, 0].map((n) => (
-                <span key={n} style={styles.yTick}>
-                  {n}
+          <ul style={styles.donutLegend}>
+            {donutSlices.map((s) => (
+              <li key={s.key} style={styles.legendRow}>
+                <span style={{ ...styles.legendDot, background: s.color }} aria-hidden />
+                <span style={styles.legendText}>
+                  <strong>{s.label}</strong>
+                  <span style={styles.legendCount}>{s.count}</span>
                 </span>
-              ))}
-            </div>
-            <div style={styles.barsWrap}>
-              {chartBars.map((b) => (
-                <div key={b.key} style={styles.barColumn}>
-                  <div style={styles.barStack}>
-                    <div
-                      style={{
-                        ...styles.barSegment,
-                        height: `${b.pendingPct}%`,
-                        background: "#2563eb",
-                        borderRadius: b.confirmedPct < 1 ? "6px 6px 0 0" : 0,
-                      }}
-                      title={`Pending: ${formatNPR(b.pending)}`}
-                    />
-                    <div
-                      style={{
-                        ...styles.barSegment,
-                        height: `${b.confirmedPct}%`,
-                        background: "#7c3aed",
-                        borderRadius: "6px 6px 0 0",
-                      }}
-                      title={`Confirmed: ${formatNPR(b.confirmed)}`}
-                    />
-                  </div>
-                  <span style={styles.barLabel}>{b.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <p style={styles.chartNote}>Last 6 months · stacked by order status (from recent sample)</p>
-        </section>
-
-        <aside style={styles.sidePanel}>
-          <h2 style={styles.panelTitle}>Sales overview</h2>
-          <ul style={styles.txList}>
-            {salesOverviewRows.length === 0 ? (
-              <li style={styles.txEmpty}>No recent orders</li>
-            ) : (
-              salesOverviewRows.map((row) => (
-                <li key={row.id} style={styles.txItem}>
-                  <div>
-                    <p style={styles.txName}>{row.name}</p>
-                    <p style={styles.txAgo}>{row.ago}</p>
-                  </div>
-                  <span
-                    style={{
-                      ...styles.txAmount,
-                      color: row.positive ? "#15803d" : "#b91c1c",
-                    }}
-                  >
-                    {row.positive ? "+" : "-"} {formatNPR(row.amount)}
-                  </span>
-                </li>
-              ))
-            )}
+              </li>
+            ))}
           </ul>
-          <div style={styles.totalSales}>
-            <p style={styles.totalLabel}>Total sales (recent)</p>
-            <p style={styles.totalValue}>{formatNPR(totalRevenue)}</p>
-            <div style={styles.progressTrack}>
-              <div style={{ ...styles.progressFill, width: `${progressPct}%` }} />
-            </div>
+        </div>
+      </section>
+
+      <section style={styles.salesPanel}>
+        <h2 style={styles.panelTitle}>Sales overview</h2>
+        <ul style={styles.txList}>
+          {salesOverviewRows.length === 0 ? (
+            <li style={styles.txEmpty}>No recent orders</li>
+          ) : (
+            salesOverviewRows.map((row) => (
+              <li key={row.id} style={styles.txItem}>
+                <div>
+                  <p style={styles.txName}>{row.name}</p>
+                  <p style={styles.txAgo}>{row.ago}</p>
+                </div>
+                <span
+                  style={{
+                    ...styles.txAmount,
+                    color: row.positive ? "#15803d" : "#b91c1c",
+                  }}
+                >
+                  {row.positive ? "+" : "-"} {formatNPR(row.amount)}
+                </span>
+              </li>
+            ))
+          )}
+        </ul>
+        <div style={styles.totalSales}>
+          <p style={styles.totalLabel}>Total sales (recent)</p>
+          <p style={styles.totalValue}>{formatNPR(totalRevenue)}</p>
+          <div style={styles.progressTrack}>
+            <div style={{ ...styles.progressFill, width: `${progressPct}%` }} />
           </div>
-        </aside>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
@@ -298,28 +298,16 @@ const styles = {
     color: "#64748b",
     fontWeight: 600,
   },
-  mainGrid: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 320px)",
-    gap: "18px",
-    alignItems: "stretch",
-    marginBottom: "22px",
-  },
-  chartPanel: {
+  donutPanel: {
     background: "#fff",
     borderRadius: "14px",
     border: "1px solid #e6e8f0",
     boxShadow: "0 8px 24px rgba(26, 26, 46, 0.06)",
-    padding: "22px 24px 18px",
+    padding: "22px 24px 24px",
+    marginBottom: "20px",
   },
-  sidePanel: {
-    background: "#fff",
-    borderRadius: "14px",
-    border: "1px solid #e6e8f0",
-    boxShadow: "0 8px 24px rgba(26, 26, 46, 0.06)",
-    padding: "22px 20px",
-    display: "flex",
-    flexDirection: "column",
+  donutHeader: {
+    marginBottom: "18px",
   },
   panelTitle: {
     margin: 0,
@@ -327,93 +315,101 @@ const styles = {
     fontWeight: 800,
     color: "#1a1a2e",
   },
-  chartHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "12px",
-    marginBottom: "18px",
-  },
-  legend: { display: "flex", gap: "16px", flexWrap: "wrap" },
-  legendItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
+  donutHint: {
+    margin: "8px 0 0",
     fontSize: "12px",
     color: "#64748b",
-    fontWeight: 600,
+    lineHeight: 1.45,
+    maxWidth: "720px",
   },
-  legendSwatch: {
-    width: "10px",
-    height: "10px",
-    borderRadius: "2px",
-  },
-  chartArea: {
+  donutBody: {
     display: "flex",
-    gap: "8px",
-    minHeight: "220px",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "32px 48px",
   },
-  yAxis: {
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    paddingBottom: "28px",
-    width: "28px",
+  donutChartWrap: {
+    position: "relative",
+    width: "220px",
+    height: "220px",
     flexShrink: 0,
   },
-  yTick: {
-    fontSize: "11px",
-    color: "#94a3b8",
-    textAlign: "right",
+  donutRing: {
+    width: "100%",
+    height: "100%",
+    borderRadius: "50%",
+    boxSizing: "border-box",
   },
-  barsWrap: {
-    flex: 1,
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: "8px",
-    borderLeft: "1px solid #e2e8f0",
-    borderBottom: "1px solid #e2e8f0",
-    padding: "0 8px 0 12px",
-    minHeight: "200px",
-  },
-  barColumn: {
-    flex: 1,
+  donutHole: {
+    position: "absolute",
+    inset: "22%",
+    borderRadius: "50%",
+    background: "#fff",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    maxWidth: "48px",
+    justifyContent: "center",
+    boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.06)",
   },
-  barStack: {
-    width: "100%",
-    height: "180px",
+  donutTotal: {
+    margin: 0,
+    fontSize: "28px",
+    fontWeight: 800,
+    color: "#1a1a2e",
+    lineHeight: 1,
+  },
+  donutTotalLabel: {
+    margin: "6px 0 0",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#64748b",
+  },
+  donutLegend: {
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    minWidth: "200px",
+  },
+  legendRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "8px 0",
+    borderBottom: "1px solid #eef1f8",
+  },
+  legendDot: {
+    width: "12px",
+    height: "12px",
+    borderRadius: "50%",
+    flexShrink: 0,
+  },
+  legendText: {
+    display: "flex",
+    flex: 1,
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    fontSize: "14px",
+    color: "#334155",
+  },
+  legendCount: {
+    fontWeight: 700,
+    color: "#0f172a",
+  },
+  salesPanel: {
+    background: "#fff",
+    borderRadius: "14px",
+    border: "1px solid #e6e8f0",
+    boxShadow: "0 8px 24px rgba(26, 26, 46, 0.06)",
+    padding: "22px 24px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "flex-end",
-    alignItems: "stretch",
-  },
-  barSegment: {
-    width: "100%",
-    minHeight: "2px",
-    transition: "height 0.2s ease",
-  },
-  barLabel: {
-    marginTop: "8px",
-    fontSize: "11px",
-    color: "#64748b",
-    fontWeight: 600,
-  },
-  chartNote: {
-    margin: "12px 0 0",
-    fontSize: "11px",
-    color: "#94a3b8",
   },
   txList: {
     listStyle: "none",
     margin: "16px 0 0",
     padding: 0,
-    flex: 1,
   },
   txEmpty: {
     padding: "12px 0",
@@ -445,7 +441,7 @@ const styles = {
     whiteSpace: "nowrap",
   },
   totalSales: {
-    marginTop: "auto",
+    marginTop: "18px",
     paddingTop: "18px",
     borderTop: "1px solid #eef1f8",
   },

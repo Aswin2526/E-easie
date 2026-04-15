@@ -30,7 +30,7 @@ export default function AdminUsersPage() {
       try {
         await refreshUsers();
       } catch (err) {
-        if (!cancelled) setError(apiErrorMessage(err, "Failed to load users."));
+        if (!cancelled) setError(apiErrorMessage(err, "Failed to load customers."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
   if (loading) {
     return (
       <main style={inner}>
-        <p style={s.muted}>Loading users…</p>
+        <p style={s.muted}>Loading customers…</p>
       </main>
     );
   }
@@ -75,7 +75,7 @@ export default function AdminUsersPage() {
     return (
       <main style={inner}>
         <section style={s.panel}>
-          <h2 style={s.heading}>Users</h2>
+          <h2 style={s.heading}>Customers</h2>
           <p style={s.error}>{error}</p>
         </section>
       </main>
@@ -85,9 +85,9 @@ export default function AdminUsersPage() {
   return (
     <main style={inner}>
       <section style={s.tableCard}>
-        <h2 style={s.tableTitle}>Users</h2>
+        <h2 style={s.tableTitle}>Customers</h2>
         <p style={s.tableHint}>
-          Customer accounts only (up to 50 recent). Staff are not listed here. Blocked users cannot sign in until
+          Customer accounts only (up to 50 recent). Staff are not listed here. Blocked customers cannot sign in until
           unblocked.
         </p>
         {userActionMessage ? <p style={s.userActionBanner}>{userActionMessage}</p> : null}
@@ -151,7 +151,7 @@ export default function AdminUsersPage() {
             })}
           </tbody>
         </table>
-        {filtered.length === 0 ? <p style={{ ...s.muted, padding: "16px" }}>No users match your search.</p> : null}
+        {filtered.length === 0 ? <p style={{ ...s.muted, padding: "16px" }}>No customers match your search.</p> : null}
       </section>
     </main>
   );
