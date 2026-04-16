@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Avg, Count
 from django.shortcuts import redirect
@@ -12,6 +13,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from users.models import UserSubscription
 
 from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
 from .esewa import (
@@ -44,6 +46,48 @@ TRACK_STEPS = [
 ]
 
 
+HEX_COLOR_NAMES = {
+    "#000000": "Black",
+    "#111111": "Black",
+    "#1f2937": "Black",
+    "#2d2d2d": "Black",
+    "#333333": "Dark Gray",
+    "#6b7280": "Gray",
+    "#9ca3af": "Gray",
+    "#ffffff": "White",
+    "#f5f5f5": "Off White",
+    "#ef4444": "Red",
+    "#f97316": "Orange",
+    "#f59e0b": "Amber",
+    "#eab308": "Yellow",
+    "#22c55e": "Green",
+    "#10b981": "Emerald",
+    "#3b82f6": "Blue",
+    "#6366f1": "Indigo",
+    "#8b5cf6": "Violet",
+    "#ec4899": "Pink",
+    "#a855f7": "Purple",
+    "#92400e": "Brown",
+}
+
+
+def _color_name(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    low = raw.lower()
+    if low.startswith("#"):
+        return HEX_COLOR_NAMES.get(low, low.upper())
+    return raw
+
+
+def _send_order_email(subject, message, recipients):
+    sender = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "")
+    if not sender or not recipients:
+        return
+    send_mail(subject, message, sender, recipients, fail_silently=False)
+
+
 def _safe_design_image_url(request, order):
     img = getattr(order.customization, "custom_design", None)
     if not img:
@@ -59,7 +103,8 @@ def _build_order_tracking_payload(request, order):
     customization = order.customization
     product = customization.product
     part_colors = customization.part_colors if isinstance(customization.part_colors, dict) else {}
-    colors = ", ".join(v for v in part_colors.values() if isinstance(v, str) and v.strip()) or "Default"
+    named_colors = [_color_name(v) for v in part_colors.values() if isinstance(v, str) and v.strip()]
+    colors = ", ".join(named_colors) or "Default"
     size = customization.custom_size if customization.size == "CUSTOM" and customization.custom_size else customization.size
     needs_design_approval = bool(customization.custom_design) and order.status == Order.Status.PENDING
 
@@ -67,11 +112,16 @@ def _build_order_tracking_payload(request, order):
         Order.Status.PENDING: 1 if needs_design_approval else 0,
         Order.Status.CONFIRMED: 3,
         Order.Status.SHIPPED: 5,
+        Order.Status.DELIVERED: 6,
         Order.Status.CANCELLED: 0,
     }
     current_step = status_to_step.get(order.status, 0)
 
-    paid_amount = order.total_price if order.status == Order.Status.SHIPPED else (order.total_price / 2)
+    paid_amount = (
+        order.total_price
+        if order.status in {Order.Status.SHIPPED, Order.Status.DELIVERED}
+        else (order.total_price / 2)
+    )
     paid_amount = paid_amount if order.status != Order.Status.PENDING else 0
     if paid_amount >= order.total_price:
         payment_status = "Paid"
@@ -133,6 +183,14 @@ def _build_order_tracking_payload(request, order):
             {
                 "from": "admin",
                 "text": f"Order shipped. Tracking number: {tracking_number}.",
+                "created_at": order.placed_at.isoformat(),
+            }
+        )
+    if order.status == Order.Status.DELIVERED:
+        messages.append(
+            {
+                "from": "admin",
+                "text": "Order delivered successfully.",
                 "created_at": order.placed_at.isoformat(),
             }
         )
@@ -246,11 +304,30 @@ def esewa_success(request):
 
     order_ids = session.get("order_ids") or []
     user_id = session.get("user_id")
-    Order.objects.filter(
+    updated_qs = Order.objects.filter(
         id__in=order_ids,
         user_id=user_id,
         status=Order.Status.PENDING,
-    ).update(status=Order.Status.CONFIRMED)
+    )
+    updated_ids = list(updated_qs.values_list("id", flat=True))
+    updated_qs.update(status=Order.Status.CONFIRMED)
+    for order in Order.objects.filter(id__in=updated_ids).select_related("user"):
+        recipient = (order.user.email if order.user else order.guest_email) or ""
+        if not recipient:
+            continue
+        name = (order.user.first_name or order.user.username) if order.user else "Customer"
+        try:
+            _send_order_email(
+                f"Order #{order.id} confirmed",
+                (
+                    f"Hello {name},\n\n"
+                    f"Your order #{order.id} has been successfully placed and confirmed.\n"
+                    "Thank you for shopping with E-easie."
+                ),
+                [recipient],
+            )
+        except Exception:
+            pass
     cache.delete(f"esewa_pay:{transaction_uuid}")
 
     cache.set(
@@ -424,6 +501,20 @@ class CustomizationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save()
 
+    def create(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return Response({"detail": "Login required for customization."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not UserSubscription.objects.filter(user=request.user, is_active=True).exists():
+            return Response(
+                {"detail": "Active subscription is required to customize products."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = self.get_serializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class OrderViewSet(viewsets.ModelViewSet):
     """Place orders (create) and list own orders."""
@@ -449,6 +540,22 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        order = serializer.instance
+        recipient = (order.user.email if order.user else order.guest_email) or ""
+        if recipient:
+            name = (order.user.first_name or order.user.username) if order.user else "Customer"
+            try:
+                _send_order_email(
+                    f"Order #{order.id} received",
+                    (
+                        f"Hello {name},\n\n"
+                        f"We have received your order #{order.id}.\n"
+                        "Thank you for shopping with E-easie."
+                    ),
+                    [recipient],
+                )
+            except Exception:
+                pass
         out = OrderListSerializer(serializer.instance, context={"request": request})
         return Response(out.data, status=status.HTTP_201_CREATED)
 

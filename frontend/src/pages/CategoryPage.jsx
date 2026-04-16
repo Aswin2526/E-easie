@@ -260,12 +260,14 @@ export default function CategoryPage() {
                     >
                       Customize
                     </Link>
-                    <button style={page.addToCartBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
-                      🛒 Add to cart
-                    </button>
-                    <button style={page.buyNowBtn} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
-                      Buy now
-                    </button>
+                    <div style={page.cartBuyRow}>
+                      <button style={page.addToCartBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
+                        🛒 Add to cart
+                      </button>
+                      <button style={page.buyNowBtn} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
+                        Buy now
+                      </button>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -349,11 +351,17 @@ const page = {
     gap: "10px",
     paddingTop: "4px",
   },
+  cartBuyRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "10px",
+    width: "100%",
+  },
   addToCartBtn: {
     width: "100%",
     padding: "10px 12px",
-    background: "#f3f4f6",
-    border: "1px solid #e5e7eb",
+    background: "#fff6df",
+    border: "1px solid #f0e1b7",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "13px",
@@ -363,9 +371,9 @@ const page = {
   buyNowBtn: {
     width: "100%",
     padding: "10px 12px",
-    background: "#1a1a2e",
-    color: "#fff",
-    border: "1px solid #1a1a2e",
+    background: "#e7f8ea",
+    color: "#1f2937",
+    border: "1px solid #c8e9cd",
     borderRadius: "8px",
     cursor: "pointer",
     fontSize: "13px",

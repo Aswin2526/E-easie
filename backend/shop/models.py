@@ -170,6 +170,7 @@ class Order(models.Model):
         PENDING = "pending", "Pending"
         CONFIRMED = "confirmed", "Confirmed"
         SHIPPED = "shipped", "Shipped"
+        DELIVERED = "delivered", "Delivered"
         CANCELLED = "cancelled", "Cancelled"
 
     user = models.ForeignKey(

@@ -17,7 +17,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.utils.text import slugify
 from shop.models import Customization, Order, Product
-from .models import PasswordResetOTP, VendorRegistrationRequest
+from .models import PasswordResetOTP, UserSubscription, VendorRegistrationRequest
 from .serializers import (
     ForgotPasswordRequestSerializer,
     ForgotPasswordResetSerializer,
@@ -44,6 +44,17 @@ def register_user(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
+        try:
+            _send_plain_email(
+                "Welcome to E-easie",
+                (
+                    f"Hello {user.first_name or user.username},\n\n"
+                    "Welcome to E-easie. Thank you for joining us."
+                ),
+                [user.email],
+            )
+        except Exception:
+            pass
         token, _ = Token.objects.get_or_create(user=user)
         role = "admin" if _is_super_admin_user(user) else "user"
         return Response(
@@ -294,10 +305,12 @@ def admin_vendor_request_detail(request, request_id):
 @permission_classes([IsAuthenticated])
 def me(request):
     role = "admin" if _is_super_admin_user(request.user) else "user"
+    sub = UserSubscription.objects.filter(user=request.user, is_active=True).first()
     return Response(
         {
             "id": request.user.id,
             "role": role,
+            "subscription_active": bool(sub),
             "is_superuser": request.user.is_superuser,
             "user": {
                 "name": request.user.first_name or request.user.username,
@@ -305,6 +318,16 @@ def me(request):
             },
         }
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def activate_subscription(request):
+    sub, _ = UserSubscription.objects.get_or_create(user=request.user)
+    sub.is_active = True
+    sub.activated_at = timezone.now()
+    sub.save(update_fields=["is_active", "activated_at", "updated_at"])
+    return Response({"subscription_active": True, "message": "Subscription activated."})
 
 
 @api_view(["GET"])
@@ -395,7 +418,7 @@ def _payment_fields(order):
             "paid_amount": Decimal("0"),
             "balance_due": order.total_price,
         }
-    if st == Order.Status.SHIPPED:
+    if st in {Order.Status.SHIPPED, Order.Status.DELIVERED}:
         return {
             "payment_status": "Paid",
             "paid_amount": order.total_price,
@@ -438,7 +461,7 @@ def admin_orders_list(request):
 
     recent_orders_qs = (
         Order.objects.select_related("user", "customization", "customization__product")
-        .filter(Q(user__isnull=True) | Q(user__is_staff=False))
+        .exclude(user__email__iexact=SUPER_ADMIN_EMAIL)
         .order_by("-placed_at")[:200]
     )
     return Response({"orders": [_admin_order_payload(o) for o in recent_orders_qs]})
@@ -453,16 +476,17 @@ def admin_order_detail(request, order_id):
     try:
         order = (
             Order.objects.select_related("user", "customization", "customization__product")
-            .filter(Q(user__isnull=True) | Q(user__is_staff=False))
+            .exclude(user__email__iexact=SUPER_ADMIN_EMAIL)
             .get(pk=order_id)
         )
     except Order.DoesNotExist:
         return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    prev_status = order.status
     raw_status = str(request.data.get("status", "")).strip().lower()
     if raw_status not in {choice.value for choice in Order.Status}:
         return Response(
-            {"detail": "Invalid status. Allowed: pending, confirmed, shipped, cancelled."},
+            {"detail": "Invalid status. Allowed: pending, confirmed, shipped, delivered, cancelled."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -479,6 +503,39 @@ def admin_order_detail(request, order_id):
     order.status = raw_status
     order.cancel_description = raw_cancel
     order.save(update_fields=["status", "cancel_description"])
+    recipient_email = (order.user.email if order.user else order.guest_email) or ""
+    recipient_name = (
+        (order.user.first_name or order.user.username)
+        if order.user
+        else (order.guest_email or "Customer")
+    )
+    if raw_status != prev_status and recipient_email:
+        if raw_status == Order.Status.SHIPPED:
+            try:
+                _send_plain_email(
+                    f"Your order #{order.id} has been shipped",
+                    (
+                        f"Hello {recipient_name},\n\n"
+                        f"Good news! Your order #{order.id} has been marked as shipped.\n"
+                        "You can check order tracking in your account."
+                    ),
+                    [recipient_email],
+                )
+            except Exception:
+                pass
+        elif raw_status == Order.Status.DELIVERED:
+            try:
+                _send_plain_email(
+                    f"Order #{order.id} delivered",
+                    (
+                        f"Hello {recipient_name},\n\n"
+                        f"Your order #{order.id} has been successfully delivered.\n"
+                        "Thank you for shopping with E-easie."
+                    ),
+                    [recipient_email],
+                )
+            except Exception:
+                pass
     return Response({"order": _admin_order_payload(order), "message": "Order status updated."})
 
 

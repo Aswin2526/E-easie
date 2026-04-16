@@ -295,7 +295,7 @@ export default function TrackOrderPage() {
                 setOrderId(String(o.order_id));
               }}
             >
-              #{o.order_id} • {o.order_status}
+              {o.order_id} • {o.order_status}
             </button>
           ))}
         </div>
@@ -311,7 +311,7 @@ export default function TrackOrderPage() {
           <div style={s.card}>
             <h2 style={s.cardTitle}>Order Details</h2>
             <div style={s.rows}>
-              <Row label="Order ID" value={`#${selectedOrder.order_id}`} />
+              <Row label="Order ID" value={`${selectedOrder.order_id}`} />
               <Row label="Placed on" value={selectedOrder.placed_date} />
               <Row label="Expected delivery" value={selectedOrder.expected_delivery_date} />
               <Row label="Customer" value={selectedOrder.customer_name} />

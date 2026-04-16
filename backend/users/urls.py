@@ -10,6 +10,7 @@ urlpatterns = [
     path('forgot-password/reset/', views.forgot_password_reset, name='forgot-password-reset'),
     path('vendor-requests/', views.vendor_request_create, name='vendor-request-create'),
     path('me/', views.me, name='me'),
+    path('subscription/activate/', views.activate_subscription, name='activate-subscription'),
     path('admin/dashboard/', views.admin_dashboard, name='admin-dashboard'),
     path('admin/users/', views.admin_users_list, name='admin-users-list'),
     path('admin/users/<int:user_id>/', views.admin_user_detail, name='admin-user-detail'),

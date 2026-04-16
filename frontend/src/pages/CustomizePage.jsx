@@ -1,9 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchProducts, saveCustomization, addToCart, getStoredRole, getStoredToken } from "../api";
+import {
+  activateSubscription,
+  addToCart,
+  fetchCurrentUser,
+  fetchProducts,
+  getStoredRole,
+  getStoredToken,
+  saveCustomization,
+} from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
-import ProductRatingsPanel from "../components/ProductRatingsPanel";
 import ProductStarsLine from "../components/ProductStarsLine";
 import { useNotify } from "../contexts/NotifyContext";
 
@@ -85,9 +92,11 @@ export default function CustomizePage() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [ordering, setOrdering] = useState(false);
   const [showSubscribeToast, setShowSubscribeToast] = useState(false);
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const [activatingSubscription, setActivatingSubscription] = useState(false);
 
   const isLoggedIn = Boolean(getStoredToken());
-  const isFreeUser = isLoggedIn && getStoredRole() === "user";
+  const isFreeUser = isLoggedIn && getStoredRole() === "user" && !subscriptionActive;
 
   function notifySubscriptionRequired() {
     setShowSubscribeToast(true);
@@ -96,6 +105,25 @@ export default function CustomizePage() {
       setShowSubscribeToast(false);
     }, 3000);
   }
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setSubscriptionActive(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await fetchCurrentUser();
+        if (!cancelled) setSubscriptionActive(Boolean(me?.subscription_active));
+      } catch {
+        if (!cancelled) setSubscriptionActive(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +158,25 @@ export default function CustomizePage() {
     }
     setSecondaryProductId(secondaryFromUrl || "");
   }, [products, productFromUrl, primaryFromUrl, secondaryFromUrl, categoryFromUrl]);
+
+  async function handleActivateSubscription() {
+    if (!isLoggedIn) {
+      toast.info("Login required", "Please login to subscribe.");
+      return;
+    }
+    setActivatingSubscription(true);
+    try {
+      await activateSubscription();
+      setSubscriptionActive(true);
+      setShowSubscribeToast(false);
+      toast.success("Subscription active", "You can now customize products.");
+    } catch (err) {
+      const detail = err?.data?.detail || err?.message || "Could not activate subscription.";
+      toast.error("Subscription failed", detail);
+    } finally {
+      setActivatingSubscription(false);
+    }
+  }
 
   const countByType = useMemo(() => {
     const m = {};
@@ -498,7 +545,6 @@ export default function CustomizePage() {
               Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
               {formatNPR(selectedProduct.base_price)}
             </p>
-            <ProductRatingsPanel productId={productId} isLoggedIn={isLoggedIn} />
           </>
         )}
       </section>
@@ -1039,9 +1085,10 @@ export default function CustomizePage() {
           <button
             type="button"
             style={s.subscribeBtn}
-            onClick={() => toast.info("Subscriptions", "Subscription plans will be available soon. Stay tuned!")}
+            onClick={handleActivateSubscription}
+            disabled={activatingSubscription}
           >
-            Subscribe
+            {activatingSubscription ? "Subscribing..." : "Subscribe"}
           </button>
         </div>
       ) : null}
