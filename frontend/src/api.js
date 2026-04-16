@@ -215,6 +215,20 @@ export function fetchAdminProductsCatalog() {
   return apiFetch("/api/users/admin/products/");
 }
 
+export function adminCreateProduct(formData) {
+  return apiFetch("/api/users/admin/products/", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function adminPatchProductQuantity(productId, quantity) {
+  return apiFetch(`/api/users/admin/products/${productId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ quantity }),
+  });
+}
+
 export function fetchAdminReport() {
   return apiFetch("/api/users/admin/report/");
 }

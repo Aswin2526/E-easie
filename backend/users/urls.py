@@ -18,6 +18,7 @@ urlpatterns = [
     path('admin/vendor-requests/', views.admin_vendor_requests_list, name='admin-vendor-requests-list'),
     path('admin/vendor-requests/<int:request_id>/', views.admin_vendor_request_detail, name='admin-vendor-request-detail'),
     path('admin/products/', views.admin_products_list, name='admin-products-list'),
+    path('admin/products/<int:product_id>/', views.admin_product_detail, name='admin-product-detail'),
     path('admin/report/', views.admin_report, name='admin-report'),
 ]
 

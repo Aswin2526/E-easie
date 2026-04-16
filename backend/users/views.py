@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.utils.text import slugify
 from shop.models import Customization, Order, Product
 from .models import PasswordResetOTP, VendorRegistrationRequest
 from .serializers import (
@@ -481,33 +482,124 @@ def admin_order_detail(request, order_id):
     return Response({"order": _admin_order_payload(order), "message": "Order status updated."})
 
 
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def admin_products_list(request):
     if not _is_super_admin_user(request.user):
         return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
 
-    products = []
-    for p in Product.objects.all().order_by("name"):
+    ordered_qty_by_product = {
+        row["customization__product_id"]: int(row["ordered_qty"] or 0)
+        for row in (
+            Order.objects.exclude(status=Order.Status.CANCELLED)
+            .values("customization__product_id")
+            .annotate(ordered_qty=Sum("quantity"))
+        )
+    }
+
+    def _product_payload(p):
         image_url = None
         if p.image and p.image.name:
             try:
                 image_url = request.build_absolute_uri(p.image.url)
             except Exception:
                 image_url = None
-        products.append(
-            {
-                "id": p.id,
-                "name": p.name,
-                "slug": p.slug,
-                "product_type": p.product_type,
-                "base_price": str(p.base_price),
-                "is_active": p.is_active,
-                "image": image_url,
-                "created_at": p.created_at,
-            }
+        ordered_qty = ordered_qty_by_product.get(p.id, 0)
+        available_qty = max(0, int(p.quantity or 0) - ordered_qty)
+        return {
+            "id": p.id,
+            "name": p.name,
+            "slug": p.slug,
+            "product_type": p.product_type,
+            "base_price": str(p.base_price),
+            "quantity": available_qty,
+            "is_active": p.is_active,
+            "image": image_url,
+            "created_at": p.created_at,
+        }
+
+    if request.method == "POST":
+        name = str(request.data.get("name", "")).strip()
+        product_type = str(request.data.get("product_type", "")).strip().lower()
+        description = str(request.data.get("description", "") or "").strip()
+        image = request.FILES.get("image")
+        is_active_raw = str(request.data.get("is_active", "true")).strip().lower()
+        allowed_types = {choice.value for choice in Product.ProductType}
+
+        if not name:
+            return Response({"detail": "Product name is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if product_type not in allowed_types:
+            return Response(
+                {"detail": f"Invalid product type. Allowed: {', '.join(sorted(allowed_types))}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            base_price = Decimal(str(request.data.get("base_price", "")).strip())
+        except Exception:
+            return Response({"detail": "base_price must be a valid number."}, status=status.HTTP_400_BAD_REQUEST)
+        if base_price <= 0:
+            return Response({"detail": "base_price must be greater than 0."}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_active = is_active_raw in {"1", "true", "yes", "on"}
+
+        base_slug = slugify(name)[:200] or f"product-{random.randint(1000, 9999)}"
+        slug = base_slug
+        idx = 2
+        while Product.objects.filter(slug=slug).exists():
+            suffix = f"-{idx}"
+            slug = f"{base_slug[: max(1, 220 - len(suffix))]}{suffix}"
+            idx += 1
+
+        p = Product.objects.create(
+            name=name,
+            slug=slug,
+            product_type=product_type,
+            description=description,
+            base_price=base_price,
+            quantity=100,
+            image=image,
+            is_active=is_active,
         )
+        return Response({"product": _product_payload(p), "message": "Product created."}, status=status.HTTP_201_CREATED)
+
+    products = []
+    for p in Product.objects.all().order_by("name"):
+        products.append(_product_payload(p))
     return Response({"products": products})
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def admin_product_detail(request, product_id):
+    if not _is_super_admin_user(request.user):
+        return Response({"detail": "Admin access required."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        product = Product.objects.get(pk=product_id)
+    except Product.DoesNotExist:
+        return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if "quantity" not in request.data:
+        return Response({"detail": "Field quantity is required."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        quantity = int(str(request.data.get("quantity", "")).strip())
+    except Exception:
+        return Response({"detail": "quantity must be a whole number."}, status=status.HTTP_400_BAD_REQUEST)
+    if quantity < 0:
+        return Response({"detail": "quantity cannot be negative."}, status=status.HTTP_400_BAD_REQUEST)
+
+    ordered_qty = (
+        Order.objects.filter(customization__product_id=product.id)
+        .exclude(status=Order.Status.CANCELLED)
+        .aggregate(total=Sum("quantity"))
+        .get("total")
+        or 0
+    )
+    # Incoming quantity is desired available stock; store base stock internally.
+    product.quantity = int(quantity) + int(ordered_qty)
+    product.save(update_fields=["quantity"])
+    return Response({"id": product.id, "quantity": quantity, "message": "Quantity updated."})
 
 
 @api_view(["GET"])
