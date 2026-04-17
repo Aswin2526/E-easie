@@ -59,6 +59,18 @@ export function fetchProduct(id) {
   return apiFetch(`/api/products/${id}/`);
 }
 
+/** Load one product by numeric id or by catalog slug (from list endpoint). */
+export async function fetchProductByIdOrSlug(slugOrId) {
+  const key = String(slugOrId || "").trim();
+  if (!key) throw new Error("Missing product.");
+  if (/^\d+$/.test(key)) return fetchProduct(key);
+  const data = await fetchProducts();
+  const arr = Array.isArray(data) ? data : data.results || [];
+  const found = arr.find((p) => p.slug === key);
+  if (!found) throw new Error("Product not found.");
+  return fetchProduct(found.id);
+}
+
 export function fetchProductRatingSummary(productId) {
   return apiFetch(`/api/products/${productId}/rating-summary/`);
 }

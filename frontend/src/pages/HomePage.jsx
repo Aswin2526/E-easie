@@ -2,52 +2,12 @@ import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatNPR } from "../currency";
 import heroBanner from "../assets/hero_banner.png";
-import trendingGreenOffShoulderTop from "../assets/trending_green_off_shoulder_top.png";
-import trendingBlackFloralMaxiSkirt from "../assets/trending_black_floral_maxi_skirt.png";
-import trendingOliveLongCoat from "../assets/trending_olive_long_coat.png";
-import trendingGreenJoggerPants from "../assets/trending_green_jogger_pants.png";
-import trendingGreyDrawstringPants from "../assets/trending_grey_drawstring_pants.png";
-import trendingSkyBlueButtonTop from "../assets/trending_sky_blue_button_top.png";
-import trendingPuffSleeveBlueTop from "../assets/trending_puff_sleeve_blue_top.png";
-import trendingBerryZipKnit from "../assets/trending_berry_zip_knit.png";
-import trendingMaroonFloralCardigan from "../assets/trending_maroon_floral_cardigan.png";
-import trendingTaupeWrapSkirt from "../assets/trending_taupe_wrap_skirt.png";
-
-const trendingWomenFestiveSet =
-    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-e7d1bd40-e819-415f-9dc9-df9cec8710fd.png";
-const trendingMenClassicDaura =
-    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-4fb4fe9f-d914-4352-b61a-2e9ea608695e.png";
-const trendingMenIvoryDaura =
-    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-f66ddec5-7058-45a1-9ee5-d7f8a4d536d2.png";
-const trendingBridalGoldenLehenga =
-    "/@fs/C:/Users/Dell/.cursor/projects/c-Users-Dell-OneDrive-Desktop-FYP-FYPCoursework/assets/c__Users_Dell_AppData_Roaming_Cursor_User_workspaceStorage_bf94fda10fbadcb9b9c2020957bfa737_images_image-94ff44b2-3ee6-4a8c-bb1c-df8cb2932e16.png";
+import { trendingShowcaseBase, trendingShowcaseMore } from "../data/trendingShowcases";
 
 export default function HomePage() {
     const [showAllTrending, setShowAllTrending] = useState(false);
-    const baseTrending = useMemo(
-        () => [
-            { img: trendingWomenFestiveSet, alt: "Women's Festive Beige Set", title: "Festive Beige Set", price: 12499 },
-            { img: trendingMenClassicDaura, alt: "Men's Classic Daura Set", title: "Classic Daura Set", price: 3699 },
-            { img: trendingGreenOffShoulderTop, alt: "Green Off Shoulder Top", title: "Green Off-Shoulder Top", price: 2199 },
-            { img: trendingBlackFloralMaxiSkirt, alt: "Black Floral Maxi Skirt", title: "Floral Maxi Skirt", price: 2899 },
-        ],
-        []
-    );
-    const moreTrending = useMemo(
-        () => [
-            { img: trendingOliveLongCoat, alt: "Olive Long Coat", title: "Olive Long Coat", price: 6499 },
-            { img: trendingGreenJoggerPants, alt: "Green Jogger Pants", title: "Green Jogger Pants", price: 2399 },
-            { img: trendingMenIvoryDaura, alt: "Men's Ivory Daura Suruwal", title: "Ivory Daura Suruwal", price: 4199 },
-            { img: trendingBridalGoldenLehenga, alt: "Bridal Golden Lehenga", title: "Bridal Golden Lehenga", price: 18999 },
-            { img: trendingGreyDrawstringPants, alt: "Grey Drawstring Pants", title: "Grey Drawstring Pants", price: 2599 },
-            { img: trendingSkyBlueButtonTop, alt: "Sky Blue Button Top", title: "Sky Blue Button Top", price: 2299 },
-            { img: trendingPuffSleeveBlueTop, alt: "Blue Puff Sleeve Top", title: "Blue Puff Sleeve Top", price: 2499 },
-            { img: trendingBerryZipKnit, alt: "Berry Zip Knit Top", title: "Berry Zip Knit Top", price: 2799 },
-            { img: trendingMaroonFloralCardigan, alt: "Maroon Floral Cardigan", title: "Maroon Floral Cardigan", price: 3199 },
-            { img: trendingTaupeWrapSkirt, alt: "Taupe Wrap Skirt", title: "Taupe Wrap Skirt", price: 2699 },
-        ],
-        []
-    );
+    const baseTrending = useMemo(() => trendingShowcaseBase, []);
+    const moreTrending = useMemo(() => trendingShowcaseMore, []);
     const trendingItems = showAllTrending ? [...baseTrending, ...moreTrending] : baseTrending;
 
     return (
@@ -91,7 +51,7 @@ export default function HomePage() {
             </section>
 
             {/* Trending Styles Section */}
-            <section style={styles.trendingSection}>
+            <section id="trending" style={styles.trendingSection}>
                 <div style={styles.trendingHeader}>
                     <h2 style={styles.sectionTitle}>Trending Styles</h2>
                     {!showAllTrending && (
@@ -107,13 +67,17 @@ export default function HomePage() {
 
                 <div style={styles.trendingGrid}>
                     {trendingItems.map((item) => (
-                        <div style={styles.productCard} key={item.title}>
+                        <Link
+                            to={`/product/${item.showcaseSlug}`}
+                            key={item.showcaseSlug}
+                            style={{ ...styles.productCard, ...styles.productCardLink }}
+                        >
                             <img src={item.img} alt={item.alt} style={styles.productImage} />
                             <div style={styles.productInfo}>
                                 <h4 style={styles.productTitle}>{item.title}</h4>
                                 <p style={styles.productPrice}>{formatNPR(item.price)}</p>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             </section>
@@ -294,6 +258,12 @@ const styles = {
         display: "flex",
         flexDirection: "column",
         height: "100%",
+    },
+    productCardLink: {
+        textDecoration: "none",
+        color: "inherit",
+        cursor: "pointer",
+        transition: "box-shadow 0.2s ease, transform 0.2s ease",
     },
     productImage: {
         width: "100%",

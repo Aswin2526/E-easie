@@ -122,6 +122,11 @@ export default function CategoryPage() {
     return `/customize?${q.toString()}`;
   }
 
+  function productDetailPath(p) {
+    const key = (p.slug && String(p.slug).trim()) || String(p.id);
+    return `/product/${encodeURIComponent(key)}`;
+  }
+
   async function handleAddToCart(p, e) {
     e.preventDefault();
     if (!getStoredToken()) {
@@ -242,14 +247,22 @@ export default function CategoryPage() {
                   >
                     {wishlistByProductId[String(p.id)] ? "❤️" : "♡"}
                   </button>
-                  <img
-                    src={getProductImageSrc(p)}
-                    alt={p.name}
-                    style={page.img}
-                  />
+                  <Link
+                    to={productDetailPath(p)}
+                    style={page.imgLink}
+                    aria-label={`View details for ${p.name}`}
+                  >
+                    <img
+                      src={getProductImageSrc(p)}
+                      alt={p.name}
+                      style={page.img}
+                    />
+                  </Link>
                 </div>
                 <div style={page.cardBody}>
-                  <h3 style={page.cardTitle}>{p.name}</h3>
+                  <Link to={productDetailPath(p)} style={page.cardTitleLink}>
+                    <h3 style={page.cardTitle}>{p.name}</h3>
+                  </Link>
                   <p style={page.price}>{formatNPR(p.base_price)}</p>
                   <ProductStarsLine average={p.rating_average} count={p.rating_count} />
                   <div style={page.cardActions}>
@@ -319,7 +332,20 @@ const page = {
     alignItems: "center",
     justifyContent: "center",
   },
+  imgLink: {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    lineHeight: 0,
+    color: "inherit",
+    textDecoration: "none",
+  },
   img: { width: "100%", height: "100%", objectFit: "cover" },
+  cardTitleLink: {
+    textDecoration: "none",
+    color: "inherit",
+    display: "block",
+  },
   cardBody: {
     padding: "16px",
     flex: 1,

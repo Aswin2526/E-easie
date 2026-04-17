@@ -22,6 +22,7 @@ import CartPage from "./pages/CartPage";
 import WishlistPage from "./pages/WishlistPage";
 import PaymentReceiptPage from "./pages/PaymentReceiptPage";
 import ProfilePage from "./pages/ProfilePage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/category" element={<CategoryPage />} />
+          <Route path="/product/:slugOrId" element={<ProductDetailPage />} />
           <Route path="/track-order" element={<TrackOrderPage />} />
           <Route element={<RequireAuth />}>
             <Route path="/customize" element={<CustomizePage />} />
