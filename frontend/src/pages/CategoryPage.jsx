@@ -12,6 +12,7 @@ import {
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
+import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
 import { useNotify } from "../contexts/NotifyContext";
 
 const CATEGORY_SELECTIONS_KEY = "categorySelections";
@@ -225,6 +226,7 @@ export default function CategoryPage() {
             Showing results for: <strong>{searchParams.get("q")}</strong>
           </p>
         ) : null}
+        <ShopPoliciesCallout />
       </header>
 
       {Object.entries(byType).length === 0 ? (

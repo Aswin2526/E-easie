@@ -197,6 +197,11 @@ class Order(models.Model):
     shipping_address = models.TextField()
     cancel_description = models.TextField(blank=True, default="")
     placed_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Set when the order reaches delivered status; used for the 7-day return window.",
+    )
 
     class Meta:
         ordering = ["-placed_at"]

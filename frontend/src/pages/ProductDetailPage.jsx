@@ -14,6 +14,7 @@ import { getTrendingShowcase } from "../data/trendingShowcases";
 import { getProductImageSrc } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ProductRatingsPanel from "../components/ProductRatingsPanel";
+import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function ProductDetailPage() {
@@ -219,6 +220,7 @@ export default function ProductDetailPage() {
             <ProductStarsLine average={catalogProduct.rating_average} count={catalogProduct.rating_count} />
           )}
           {displayDescription ? <p style={page.description}>{displayDescription}</p> : null}
+          <ShopPoliciesCallout />
 
           {isTrending ? (
             <p style={page.ctaHint}>

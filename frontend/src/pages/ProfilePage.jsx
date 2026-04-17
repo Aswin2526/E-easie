@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  cancelMyOrder,
   fetchCart,
   fetchCurrentUser,
   fetchMyCustomizations,
@@ -10,6 +11,7 @@ import {
 import { apiErrorMessage } from "../admin/adminUtils";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
+import { useNotify } from "../contexts/NotifyContext";
 
 function normalizeList(data) {
   if (!data) return [];
@@ -29,7 +31,13 @@ function sameUserId(a, b) {
   return Number(a) === Number(b);
 }
 
+function orderCanCancel(status) {
+  const s = String(status || "").toLowerCase();
+  return s === "pending" || s === "confirmed";
+}
+
 export default function ProfilePage() {
+  const toast = useNotify();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -37,6 +45,7 @@ export default function ProfilePage() {
   const [wishlist, setWishlist] = useState([]);
   const [orders, setOrders] = useState([]);
   const [customizations, setCustomizations] = useState([]);
+  const [cancellingId, setCancellingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +76,25 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, []);
+
+  async function handleCancelOrder(order) {
+    if (!orderCanCancel(order.status)) return;
+    const ok = window.confirm(`Cancel order #${order.id}? This cannot be undone.`);
+    if (!ok) return;
+    const note = window.prompt("Optional note (saved on your order):") ?? "";
+    if (note === null) return;
+    setCancellingId(order.id);
+    try {
+      await cancelMyOrder(order.id, { cancelDescription: note });
+      toast.success("Order cancelled", `Order #${order.id} was updated.`);
+      const next = await fetchMyOrders();
+      setOrders(normalizeList(next));
+    } catch (err) {
+      toast.error("Could not cancel", err.message || "Try again or use Track order.");
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   const myId = profile?.id;
 
@@ -222,6 +250,18 @@ export default function ProfilePage() {
                   <div style={styles.itemMeta}>
                     Qty {o.quantity} · {formatNPR(o.total_price)} · {formatWhen(o.placed_at)}
                   </div>
+                  {orderCanCancel(o.status) ? (
+                    <div style={{ marginTop: "10px" }}>
+                      <button
+                        type="button"
+                        style={styles.cancelBtn}
+                        disabled={cancellingId === o.id}
+                        onClick={() => handleCancelOrder(o)}
+                      >
+                        {cancellingId === o.id ? "Cancelling…" : "Cancel order"}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -368,6 +408,16 @@ const styles = {
     fontSize: "13px",
     color: "#475569",
     fontWeight: 500,
+  },
+  cancelBtn: {
+    padding: "6px 12px",
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "#b91c1c",
+    background: "#fff",
+    border: "1px solid #fecaca",
+    borderRadius: "6px",
+    cursor: "pointer",
   },
   itemDetail: {
     marginTop: "6px",

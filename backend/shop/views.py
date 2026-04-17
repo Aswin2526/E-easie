@@ -117,23 +117,28 @@ def _build_order_tracking_payload(request, order):
     }
     current_step = status_to_step.get(order.status, 0)
 
-    paid_amount = (
-        order.total_price
-        if order.status in {Order.Status.SHIPPED, Order.Status.DELIVERED}
-        else (order.total_price / 2)
-    )
-    paid_amount = paid_amount if order.status != Order.Status.PENDING else 0
-    if paid_amount >= order.total_price:
-        payment_status = "Paid"
-    elif paid_amount > 0:
-        payment_status = "Partially Paid"
+    if order.status == Order.Status.CANCELLED:
+        paid_amount = Decimal("0")
+        payment_status = "Cancelled"
     else:
-        payment_status = "Pending"
+        paid_amount = (
+            order.total_price
+            if order.status in {Order.Status.SHIPPED, Order.Status.DELIVERED}
+            else (order.total_price / 2)
+        )
+        paid_amount = paid_amount if order.status != Order.Status.PENDING else 0
+        if paid_amount >= order.total_price:
+            payment_status = "Paid"
+        elif paid_amount > 0:
+            payment_status = "Partially Paid"
+        else:
+            payment_status = "Pending"
 
     payment_status_color = {
         "Paid": "green",
         "Pending": "yellow",
         "Partially Paid": "orange",
+        "Cancelled": "gray",
     }[payment_status]
 
     step_entries = []
@@ -194,6 +199,27 @@ def _build_order_tracking_payload(request, order):
                 "created_at": order.placed_at.isoformat(),
             }
         )
+    if order.status == Order.Status.CANCELLED:
+        messages.append(
+            {
+                "from": "admin",
+                "text": (
+                    "This order has been cancelled."
+                    + (f" Note: {order.cancel_description}" if order.cancel_description else "")
+                ),
+                "created_at": order.placed_at.isoformat(),
+            }
+        )
+
+    now = timezone.now()
+    cancel_eligible = order.status in {Order.Status.PENDING, Order.Status.CONFIRMED}
+    return_eligible = False
+    return_deadline_date = None
+    if order.status == Order.Status.DELIVERED:
+        anchor = order.delivered_at or order.placed_at
+        deadline = anchor + timedelta(days=7)
+        return_eligible = now <= deadline
+        return_deadline_date = deadline.date().isoformat()
 
     return {
         "order_id": order.id,
@@ -234,6 +260,10 @@ def _build_order_tracking_payload(request, order):
             "design_image_url": _safe_design_image_url(request, order),
         },
         "messages": messages,
+        "status_code": order.status,
+        "cancel_eligible": cancel_eligible,
+        "return_eligible": return_eligible,
+        "return_deadline_date": return_deadline_date,
     }
 
 
@@ -561,6 +591,48 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="cancel",
+        permission_classes=[IsAuthenticated],
+    )
+    def cancel(self, request, pk=None):
+        """Customer cancels own order while it is still pending or confirmed (not shipped)."""
+        order = self.get_object()
+        if order.status in {
+            Order.Status.SHIPPED,
+            Order.Status.DELIVERED,
+            Order.Status.CANCELLED,
+        }:
+            return Response(
+                {
+                    "detail": "This order can no longer be cancelled. Contact support if you need help.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        note = (request.data.get("cancel_description") or "").strip() or "Cancelled by customer."
+        order.status = Order.Status.CANCELLED
+        order.cancel_description = note
+        order.save(update_fields=["status", "cancel_description"])
+        recipient = (order.user.email if order.user else order.guest_email) or ""
+        if recipient:
+            name = (order.user.first_name or order.user.username) if order.user else "Customer"
+            try:
+                _send_order_email(
+                    f"Order #{order.id} cancelled",
+                    (
+                        f"Hello {name},\n\n"
+                        f"Your order #{order.id} has been cancelled as requested.\n"
+                        f"Reason on file: {note}\n\n"
+                        "If you did not request this, please contact support immediately."
+                    ),
+                    [recipient],
+                )
+            except Exception:
+                pass
+        return Response(OrderListSerializer(order, context={"request": request}).data)
 
     @action(detail=False, methods=["get"], url_path="track")
     def track(self, request):

@@ -502,7 +502,11 @@ def admin_order_detail(request, order_id):
 
     order.status = raw_status
     order.cancel_description = raw_cancel
-    order.save(update_fields=["status", "cancel_description"])
+    update_fields = ["status", "cancel_description"]
+    if raw_status == Order.Status.DELIVERED and not order.delivered_at:
+        order.delivered_at = timezone.now()
+        update_fields.append("delivered_at")
+    order.save(update_fields=update_fields)
     recipient_email = (order.user.email if order.user else order.guest_email) or ""
     recipient_name = (
         (order.user.first_name or order.user.username)

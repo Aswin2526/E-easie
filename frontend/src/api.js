@@ -105,6 +105,14 @@ export function fetchMyOrders() {
   return apiFetch("/api/orders/");
 }
 
+/** Cancel own order while still pending or confirmed (POST). */
+export function cancelMyOrder(orderId, { cancelDescription } = {}) {
+  return apiFetch(`/api/orders/${orderId}/cancel/`, {
+    method: "POST",
+    body: JSON.stringify({ cancel_description: cancelDescription ?? "" }),
+  });
+}
+
 /** List current user's saved customizations (GET). */
 export function fetchMyCustomizations() {
   return apiFetch("/api/customizations/");

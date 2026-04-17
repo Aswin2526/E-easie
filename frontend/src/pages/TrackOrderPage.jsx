@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { fetchTrackedOrders, getStoredToken, trackOrder } from "../api";
+import { cancelMyOrder, fetchTrackedOrders, getStoredToken, trackOrder } from "../api";
 import { formatNPR } from "../currency";
+import { useNotify } from "../contexts/NotifyContext";
 
 const STATUS_COLORS = {
   Paid: "#15803d",
   Pending: "#ca8a04",
   "Partially Paid": "#ea580c",
+  Cancelled: "#64748b",
 };
 
 export default function TrackOrderPage() {
+  const toast = useNotify();
   const [searchParams, setSearchParams] = useSearchParams();
   const loggedIn = Boolean(getStoredToken());
   const [orderId, setOrderId] = useState("");
@@ -132,6 +135,30 @@ export default function TrackOrderPage() {
   }
 
   const selectedOrder = useMemo(() => result, [result]);
+
+  async function handleCancelOrder() {
+    if (!selectedOrder?.cancel_eligible || !loggedIn) return;
+    const ok = window.confirm(
+      "Cancel this order? You can only cancel before it has shipped. This cannot be undone."
+    );
+    if (!ok) return;
+    const note = window.prompt("Optional note (saved on your order record):") ?? "";
+    if (note === null) return;
+    setLoading(true);
+    try {
+      await cancelMyOrder(selectedOrder.order_id, { cancelDescription: note });
+      toast.success("Order cancelled", "Your order has been updated.");
+      const data = await trackOrder(String(selectedOrder.order_id), "");
+      setResult(data);
+      const list = await fetchTrackedOrders();
+      const loaded = Array.isArray(list?.orders) ? list.orders : [];
+      setOrders(loaded);
+    } catch (err) {
+      toast.error("Could not cancel", err.message || "Try again or contact support.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleCopyTracking = async () => {
     if (!selectedOrder?.shipping?.tracking_number) return;
@@ -308,6 +335,31 @@ export default function TrackOrderPage() {
               Print / Save PDF
             </button>
           </div>
+          {loggedIn && selectedOrder.cancel_eligible ? (
+            <div style={s.card}>
+              <h2 style={s.cardTitle}>Cancel order</h2>
+              <p style={s.policyText}>
+                You can cancel while the order is still <strong>pending</strong> or <strong>confirmed</strong> (before
+                it ships). After cancellation, payment handling follows our standard refund timeline.
+              </p>
+              <button type="button" style={s.cancelOrderBtn} disabled={loading} onClick={handleCancelOrder}>
+                {loading ? "Please wait…" : "Cancel this order"}
+              </button>
+            </div>
+          ) : null}
+
+          {selectedOrder.return_eligible ? (
+            <div style={s.card}>
+              <h2 style={s.cardTitle}>Return (7-day window)</h2>
+              <p style={s.policyText}>
+                This order is eligible for a return under our <strong>7-day</strong> policy (from delivery). Return the
+                item unworn with tags. Request a return by{" "}
+                <strong>{selectedOrder.return_deadline_date || "the deadline shown in your email"}</strong> — email{" "}
+                <a href="mailto:support@e-easie.com">support@e-easie.com</a> with your order number.
+              </p>
+            </div>
+          ) : null}
+
           <div style={s.card}>
             <h2 style={s.cardTitle}>Order Details</h2>
             <div style={s.rows}>
@@ -584,4 +636,15 @@ const s = {
   msgItem: { border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px", background: "#fff" },
   msgMeta: { margin: 0, color: "#334155", fontSize: 12, fontWeight: 700 },
   msgText: { margin: "4px 0 0", color: "#0f172a", lineHeight: 1.5 },
+  policyText: { margin: "0 0 12px 0", color: "#475569", fontSize: "14px", lineHeight: 1.55 },
+  cancelOrderBtn: {
+    padding: "10px 16px",
+    borderRadius: "8px",
+    border: "1px solid #b91c1c",
+    background: "#fff",
+    color: "#b91c1c",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontSize: "14px",
+  },
 };

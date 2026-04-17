@@ -275,6 +275,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             "total_price",
             "shipping_address",
             "placed_at",
+            "delivered_at",
+            "cancel_description",
             "customization",
             "customization_summary",
             "guest_email",
