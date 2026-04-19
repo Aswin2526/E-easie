@@ -233,12 +233,6 @@ export function fetchCurrentUser() {
   return apiFetch("/api/users/me/");
 }
 
-export function activateSubscription() {
-  return apiFetch("/api/users/subscription/activate/", {
-    method: "POST",
-  });
-}
-
 export function fetchAdminDashboard() {
   return apiFetch("/api/users/admin/dashboard/");
 }

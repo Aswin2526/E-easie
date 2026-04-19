@@ -13,8 +13,6 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from users.models import UserSubscription
-
 from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
 from .esewa import (
     decode_callback_data,
@@ -589,11 +587,6 @@ class CustomizationViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return Response({"detail": "Login required for customization."}, status=status.HTTP_401_UNAUTHORIZED)
-        if not UserSubscription.objects.filter(user=request.user, is_active=True).exists():
-            return Response(
-                {"detail": "Active subscription is required to customize products."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         serializer = self.get_serializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)

@@ -17,7 +17,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.utils.text import slugify
 from shop.models import Customization, Order, Product
-from .models import PasswordResetOTP, UserSubscription, VendorRegistrationRequest
+from .models import PasswordResetOTP, VendorRegistrationRequest
 from .serializers import (
     ForgotPasswordRequestSerializer,
     ForgotPasswordResetSerializer,
@@ -305,12 +305,10 @@ def admin_vendor_request_detail(request, request_id):
 @permission_classes([IsAuthenticated])
 def me(request):
     role = "admin" if _is_super_admin_user(request.user) else "user"
-    sub = UserSubscription.objects.filter(user=request.user, is_active=True).first()
     return Response(
         {
             "id": request.user.id,
             "role": role,
-            "subscription_active": bool(sub),
             "is_superuser": request.user.is_superuser,
             "user": {
                 "name": request.user.first_name or request.user.username,
@@ -318,16 +316,6 @@ def me(request):
             },
         }
     )
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def activate_subscription(request):
-    sub, _ = UserSubscription.objects.get_or_create(user=request.user)
-    sub.is_active = True
-    sub.activated_at = timezone.now()
-    sub.save(update_fields=["is_active", "activated_at", "updated_at"])
-    return Response({"subscription_active": True, "message": "Subscription activated."})
 
 
 @api_view(["GET"])

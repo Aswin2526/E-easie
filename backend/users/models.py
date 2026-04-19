@@ -1,5 +1,4 @@
 from django.db import models
-from django.conf import settings
 from django.utils import timezone
 
 
@@ -35,13 +34,3 @@ class VendorRegistrationRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-
-
-class UserSubscription(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="subscription")
-    is_active = models.BooleanField(default=False)
-    activated_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ["-updated_at"]

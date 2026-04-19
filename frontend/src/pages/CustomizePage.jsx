@@ -1,11 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  activateSubscription,
   addToCart,
-  fetchCurrentUser,
   fetchProducts,
-  getStoredRole,
   getStoredToken,
   saveCustomization,
 } from "../api";
@@ -108,39 +105,8 @@ export default function CustomizePage() {
   const [orderQty, setOrderQty] = useState(1);
   const [shippingAddress, setShippingAddress] = useState("");
   const [ordering, setOrdering] = useState(false);
-  const [showSubscribeToast, setShowSubscribeToast] = useState(false);
-  const [subscriptionActive, setSubscriptionActive] = useState(false);
-  const [activatingSubscription, setActivatingSubscription] = useState(false);
 
   const isLoggedIn = Boolean(getStoredToken());
-  const isFreeUser = isLoggedIn && getStoredRole() === "user" && !subscriptionActive;
-
-  function notifySubscriptionRequired() {
-    setShowSubscribeToast(true);
-    window.clearTimeout(window.__customizeToastTimer);
-    window.__customizeToastTimer = window.setTimeout(() => {
-      setShowSubscribeToast(false);
-    }, 3000);
-  }
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setSubscriptionActive(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const me = await fetchCurrentUser();
-        if (!cancelled) setSubscriptionActive(Boolean(me?.subscription_active));
-      } catch {
-        if (!cancelled) setSubscriptionActive(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,25 +141,6 @@ export default function CustomizePage() {
     }
     setSecondaryProductId(secondaryFromUrl || "");
   }, [products, productFromUrl, primaryFromUrl, secondaryFromUrl, categoryFromUrl]);
-
-  async function handleActivateSubscription() {
-    if (!isLoggedIn) {
-      toast.info("Login required", "Please login to subscribe.");
-      return;
-    }
-    setActivatingSubscription(true);
-    try {
-      await activateSubscription();
-      setSubscriptionActive(true);
-      setShowSubscribeToast(false);
-      toast.success("Subscription active", "You can now customize products.");
-    } catch (err) {
-      const detail = err?.data?.detail || err?.message || "Could not activate subscription.";
-      toast.error("Subscription failed", detail);
-    } finally {
-      setActivatingSubscription(false);
-    }
-  }
 
   const countByType = useMemo(() => {
     const m = {};
@@ -393,8 +340,8 @@ export default function CustomizePage() {
 
   async function handleSaveDesign(e) {
     e.preventDefault();
-    if (isFreeUser) {
-      notifySubscriptionRequired();
+    if (!isLoggedIn) {
+      toast.warning("Sign in required", "Please sign in to save your design.");
       return;
     }
     setSaveMessage(null);
@@ -491,8 +438,8 @@ export default function CustomizePage() {
 
   async function handleAddToCartFlow(e) {
     e.preventDefault();
-    if (isFreeUser) {
-      notifySubscriptionRequired();
+    if (!isLoggedIn) {
+      toast.warning("Sign in required", "Please sign in to add your design to the cart.");
       return;
     }
     if (!savedCustomizationId) {
@@ -586,7 +533,12 @@ export default function CustomizePage() {
             flexDirection: selectedCategory ? "row" : "column",
           }}
         >
-          <div style={s.productBrowseCol}>
+          <div
+            style={{
+              ...s.productBrowseCol,
+              ...(selectedCategory ? s.productBrowseColScrollable : {}),
+            }}
+          >
             {!selectedCategory && (
               <p style={s.stepMuted}>Choose a category above to see products.</p>
             )}
@@ -612,7 +564,7 @@ export default function CustomizePage() {
                         <img
                           src={getProductImageSrc(p)}
                           alt=""
-                          style={{ ...s.productThumb, ...getProductImageStyle(p) }}
+                          style={{ ...s.productThumbImg, ...getProductImageStyle(p) }}
                         />
                       </div>
                       <div style={s.productCardBody}>
@@ -656,8 +608,14 @@ export default function CustomizePage() {
             )}
           </div>
 
-          <div style={{ ...s.customizeFormCol, ...(!selectedCategory ? s.customizeFormColStack : {}) }}>
-            <div style={s.customizationWrap}>
+          <div
+            style={{
+              ...s.customizeFormCol,
+              ...(!selectedCategory ? s.customizeFormColStack : {}),
+              ...(selectedCategory ? s.customizeFormColSticky : {}),
+            }}
+          >
+            <div>
       <form onSubmit={handleSaveDesign} style={s.form}>
 
         <label style={s.label}>
@@ -1151,9 +1109,6 @@ export default function CustomizePage() {
         </button>
         {saveMessage && <p style={s.msg}>{saveMessage}</p>}
       </form>
-      {isFreeUser ? (
-        <button type="button" onClick={notifySubscriptionRequired} style={s.customizationOverlay} aria-label="Customization locked for free users" />
-      ) : null}
       <section style={s.orderSection}>
         <form onSubmit={handleAddToCartFlow} style={s.form}>
           <h2 style={s.stepTitle}>Add to Cart</h2>
@@ -1191,19 +1146,6 @@ export default function CustomizePage() {
           </div>
         </div>
       </section>
-      {showSubscribeToast ? (
-        <div style={s.toast}>
-          <span>Subscribe for your own customization</span>
-          <button
-            type="button"
-            style={s.subscribeBtn}
-            onClick={handleActivateSubscription}
-            disabled={activatingSubscription}
-          >
-            {activatingSubscription ? "Subscribing..." : "Subscribe"}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -1267,7 +1209,7 @@ const s = {
   categoryCount: { fontSize: "12px", color: "#6b7280" },
   productGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(228px, 1fr))",
     gap: "12px",
     alignItems: "stretch",
   },
@@ -1291,16 +1233,24 @@ const s = {
     boxShadow: "0 4px 14px rgba(26, 26, 46, 0.12)",
   },
   productThumbWrap: {
-    height: "120px",
-    background: "#e5e5e5",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    position: "relative",
+    width: "100%",
+    alignSelf: "stretch",
+    aspectRatio: "3 / 4",
+    minHeight: "200px",
+    background: "#e8e8ec",
     overflow: "hidden",
   },
-  productThumb: { width: "100%", height: "100%", objectFit: "cover" },
+  productThumbImg: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
   productCardBody: {
-    padding: "10px 12px 12px",
+    padding: "12px 14px 14px",
     flex: 1,
     display: "flex",
     flexDirection: "column",
@@ -1377,24 +1327,31 @@ const s = {
     flex: "1 1 340px",
     minWidth: "min(100%, 280px)",
     maxWidth: "640px",
+    minHeight: 0,
+  },
+  /** When a category is selected (split layout), only this column scrolls; form stays sticky. */
+  productBrowseColScrollable: {
+    maxHeight: "calc(100vh - 220px)",
+    overflowY: "auto",
+    overscrollBehavior: "contain",
+    paddingRight: "10px",
+    WebkitOverflowScrolling: "touch",
   },
   customizeFormCol: {
     flex: "1 1 300px",
     minWidth: "min(100%, 260px)",
     maxWidth: "440px",
   },
+  customizeFormColSticky: {
+    position: "sticky",
+    top: 20,
+    alignSelf: "flex-start",
+    maxHeight: "calc(100vh - 40px)",
+    overflowY: "auto",
+  },
   customizeFormColStack: {
     maxWidth: "100%",
     width: "100%",
-  },
-  customizationWrap: { position: "relative" },
-  customizationOverlay: {
-    position: "absolute",
-    inset: 0,
-    border: "none",
-    background: "transparent",
-    cursor: "not-allowed",
-    zIndex: 2,
   },
   form: { display: "flex", flexDirection: "column", gap: "14px" },
   label: { display: "flex", flexDirection: "column", gap: "6px", fontWeight: "600", fontSize: "14px" },
@@ -1470,28 +1427,5 @@ const s = {
     marginTop: "24px",
     paddingTop: "24px",
     borderTop: "1px solid #e8e8ec",
-  },
-  toast: {
-    position: "fixed",
-    right: 18,
-    bottom: 18,
-    background: "#1f2937",
-    color: "#fff",
-    padding: "12px 14px",
-    borderRadius: 10,
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    zIndex: 999,
-    boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
-  },
-  subscribeBtn: {
-    border: "1px solid #fecaca",
-    background: "#fecaca",
-    color: "#7f1d1d",
-    borderRadius: 8,
-    padding: "6px 10px",
-    fontWeight: 700,
-    cursor: "pointer",
   },
 };
