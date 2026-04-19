@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchProduct, checkoutBuyNowWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
-import { getProductImageSrc } from "../productImages";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function DirectCheckoutPage() {
@@ -178,7 +178,13 @@ export default function DirectCheckoutPage() {
 
       <div style={s.container}>
         <div style={s.summaryCard}>
-          <img src={getProductImageSrc(product)} alt={product.name} style={s.thumb} />
+          <div style={s.thumbWrap}>
+            <img
+              src={getProductImageSrc(product)}
+              alt={product.name}
+              style={{ ...s.thumbImg, ...getProductImageStyle(product) }}
+            />
+          </div>
           <div style={s.summaryBody}>
             <h2 style={s.productName}>{product.name}</h2>
             <p style={s.meta}>{product.product_type_display || product.product_type}</p>
@@ -301,7 +307,15 @@ const s = {
     borderRadius: "10px",
     background: "#fff",
   },
-  thumb: { width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", background: "#f1f5f9" },
+  thumbWrap: {
+    width: "120px",
+    height: "120px",
+    flexShrink: 0,
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#f1f5f9",
+  },
+  thumbImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
   summaryBody: { flex: 1, minWidth: 0 },
   productName: { margin: "0 0 6px 0", fontSize: "18px", fontWeight: 800, color: "#1a1a2e" },
   meta: { margin: "0 0 8px 0", fontSize: "13px", color: "#64748b", fontWeight: 600 },

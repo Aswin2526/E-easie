@@ -2,8 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchCart, patchCartItem, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
-import { customizationUnitPrice, fabricHasNonCottonMarkup } from "../pricing";
-import { getProductImageSrc } from "../productImages";
+import {
+  customizationUnitPrice,
+  effectiveCatalogPartColors,
+  fabricMarkupApplies,
+  nonDefaultPartColorsMarkup,
+} from "../pricing";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function CartPage() {
@@ -146,15 +151,20 @@ export default function CartPage() {
   if (loading) return <div style={s.centered}>Loading Cart...</div>;
   if (error) return <div style={s.centered}><p style={{color:"red"}}>{error}</p></div>;
 
-  const items = cart?.items || [];
-  const total = items.reduce((acc, item) => {
+  function cartLineUnit(item) {
     const p = item.product_detail;
-    const unit =
-      item.customization && item.customization_detail
-        ? customizationUnitPrice(p.base_price, item.customization_detail.fabric)
-        : parseFloat(p.base_price);
-    return acc + unit * item.quantity;
-  }, 0);
+    if (!item.customization || !item.customization_detail) return parseFloat(p.base_price);
+    const cust = item.customization_detail;
+    const ref = effectiveCatalogPartColors(p, p.product_type);
+    return customizationUnitPrice(p.base_price, cust.fabric, {
+      partColors: cust.part_colors || {},
+      catalogReferencePartColors: ref,
+      defaultFabric: p.default_fabric,
+    });
+  }
+
+  const items = cart?.items || [];
+  const total = items.reduce((acc, item) => acc + cartLineUnit(item) * item.quantity, 0);
 
   return (
     <div style={s.wrap}>
@@ -166,13 +176,14 @@ export default function CartPage() {
           <div style={s.itemsList}>
             {items.map((item) => {
               const p = item.product_detail;
-              const unit =
-                item.customization && item.customization_detail
-                  ? customizationUnitPrice(p.base_price, item.customization_detail.fabric)
-                  : parseFloat(p.base_price);
+              const unit = cartLineUnit(item);
+              const cust = item.customization_detail;
+              const ref = cust ? effectiveCatalogPartColors(p, p.product_type) : {};
+              const fabAdj = cust && fabricMarkupApplies(cust.fabric, p.default_fabric);
+              const colAdj = cust && nonDefaultPartColorsMarkup(cust.part_colors || {}, ref);
               return (
                 <div key={item.id} style={s.cartItem}>
-                  <img src={getProductImageSrc(p)} alt={p.name} style={s.itemImage} />
+                  <img src={getProductImageSrc(p)} alt={p.name} style={{ ...s.itemImage, ...getProductImageStyle(p) }} />
                   <div style={s.itemDetails}>
                     <h3 style={s.itemName}>{p.name}</h3>
                     <div style={s.qtyRow} aria-label="Quantity">
@@ -205,9 +216,8 @@ export default function CartPage() {
                     ) : (
                       <p style={s.successText}>
                         Customization applied
-                        {fabricHasNonCottonMarkup(item.customization_detail?.fabric)
-                          ? " · +25% fabric vs cotton"
-                          : ""}
+                        {fabAdj ? " · +25% vs original fabric" : ""}
+                        {colAdj ? " · +20% vs original colors" : ""}
                       </p>
                     )}
                   </div>
@@ -270,7 +280,15 @@ const s = {
   centered: { padding: "60px 24px", textAlign: "center" },
   container: { display: "flex", gap: "32px", alignItems: "flex-start", flexWrap: "wrap" },
   itemsList: { flex: "1 1 600px", display: "flex", flexDirection: "column", gap: "16px" },
-  cartItem: { display: "flex", padding: "16px", border: "1px solid #eee", borderRadius: "8px", background: "#fff", gap: "20px" },
+  cartItem: {
+    display: "flex",
+    padding: "16px",
+    border: "1px solid #eee",
+    borderRadius: "8px",
+    background: "#fff",
+    gap: "20px",
+    overflow: "hidden",
+  },
   itemImage: { width: "100px", height: "100px", objectFit: "cover", borderRadius: "6px", background: "#f5f5f5" },
   itemDetails: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" },
   itemName: { fontSize: "18px", fontWeight: "bold", margin: "0 0 8px 0" },

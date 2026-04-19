@@ -4,8 +4,10 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-# Non-cotton fabrics: +25% on product base price (order / payment).
+# Fabric differs from this product's catalog default_fabric: +25% on base (order / payment).
 FABRIC_NON_COTTON_MARKUP = Decimal("0.25")
+# Part colors differ from catalog defaults: +20% (multiplicative with fabric markup).
+COLOR_NON_DEFAULT_MARKUP = Decimal("0.20")
 
 
 class Product(models.Model):
@@ -31,6 +33,11 @@ class Product(models.Model):
         blank=True,
         help_text='Optional map of part keys to #hex defaults for the customize UI, e.g. {"body":"#f5f5f5","sleeves":"#1a1a1a"}.',
     )
+    default_fabric = models.CharField(
+        max_length=30,
+        default="cotton",
+        help_text="Fabric shown with this garment in the catalog; used as the customize form default.",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -39,6 +46,14 @@ class Product(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.get_product_type_display()})"
+
+    def effective_catalog_part_colors(self) -> dict:
+        """Merged inferred + stored default part colors (same logic as customize UI)."""
+        from shop.default_part_colors import default_part_colors_for_seed
+
+        inferred = default_part_colors_for_seed(self.slug, self.product_type)
+        raw = self.default_part_colors if isinstance(self.default_part_colors, dict) else {}
+        return {**inferred, **raw}
 
 
 class ProductRating(models.Model):
@@ -168,13 +183,33 @@ class Customization(models.Model):
     class Meta:
         ordering = ["-updated_at"]
 
+    def _part_colors_differ_from_catalog(self) -> bool:
+        from shop.hex_color import normalize_hex_color
+
+        spec = self.product.effective_catalog_part_colors()
+        actual = self.part_colors if isinstance(self.part_colors, dict) else {}
+        for key, def_val in spec.items():
+            d = normalize_hex_color(def_val)
+            if not d:
+                continue
+            if key not in actual:
+                continue
+            a = normalize_hex_color(str(actual[key]))
+            if not a or a != d:
+                return True
+        return False
+
     def unit_price_for_order(self) -> Decimal:
-        """Per-unit NPR for this design: base garment price, +25% when fabric is not cotton."""
+        """Per-unit NPR: base ×1.25 if fabric ≠ product catalog default_fabric; ×1.20 if part_colors differ from catalog."""
         base = Decimal(str(self.product.base_price))
-        if self.fabric == self.Fabric.COTTON:
-            return base.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        marked = base * (Decimal("1") + FABRIC_NON_COTTON_MARKUP)
-        return marked.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        mult = Decimal("1")
+        default_fab = (self.product.default_fabric or "").strip().lower() or self.Fabric.COTTON.value
+        if str(self.fabric).lower() != default_fab:
+            mult *= Decimal("1") + FABRIC_NON_COTTON_MARKUP
+        if self._part_colors_differ_from_catalog():
+            mult *= Decimal("1") + COLOR_NON_DEFAULT_MARKUP
+        out = (base * mult).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return out
 
     def __str__(self) -> str:
         label = self.title or f"Design #{self.pk}"

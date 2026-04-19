@@ -120,7 +120,13 @@ export default function ProductRatingsPanel({ productId, isLoggedIn }) {
       ) : (
         <>
           <ProductStarsLine average={summary?.average} count={summary?.count} />
-          {isLoggedIn ? (
+          {isLoggedIn && summary && summary.can_submit_review === false && !summary.mine ? (
+            <p style={{ ...muted, marginTop: "10px", color: "#92400e", fontWeight: 600 }}>
+              Reviews unlock after your order for this product is marked delivered. You can also leave a review from
+              My Profile → Purchased orders.
+            </p>
+          ) : null}
+          {isLoggedIn && (summary?.can_submit_review !== false || summary?.mine) ? (
             <form onSubmit={handleSubmit}>
               <p style={{ margin: "0 0 6px 0", fontSize: "13px", fontWeight: 600, color: "#334155" }}>
                 Your rating
@@ -153,7 +159,7 @@ export default function ProductRatingsPanel({ productId, isLoggedIn }) {
                 {submitting ? "Saving…" : summary?.mine ? "Update my rating" : "Submit rating"}
               </button>
             </form>
-          ) : (
+          ) : isLoggedIn ? null : (
             <p style={muted}>Sign in to rate this product.</p>
           )}
           {message ? <p style={{ ...muted, color: message.startsWith("Thanks") ? "#15803d" : "#b91c1c" }}>{message}</p> : null}

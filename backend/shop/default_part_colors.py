@@ -82,3 +82,11 @@ def default_part_colors_for_seed(slug: str, product_type: str) -> dict[str, str]
     if product_type == "tshirt":
         return {"body": body}
     return {"body": body, "sleeves": body, "collar": body}
+
+
+def default_fabric_for_seed(slug: str) -> str:
+    """Catalog fabric default: denim for denim/jean slugs, else cotton."""
+    s = (slug or "").lower()
+    if "denim" in s or "jean" in s:
+        return "denim"
+    return "cotton"

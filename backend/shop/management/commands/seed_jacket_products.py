@@ -10,7 +10,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
-from shop.default_part_colors import default_part_colors_for_seed
+from shop.default_part_colors import default_fabric_for_seed, default_part_colors_for_seed
 from shop.models import Order, Product
 
 # (stable slug, display name, description, price, image filename)
@@ -131,6 +131,7 @@ class Command(BaseCommand):
                         "default_part_colors": default_part_colors_for_seed(
                             slug, Product.ProductType.JACKET.value
                         ),
+                        "default_fabric": default_fabric_for_seed(slug),
                     },
                 )
             if was_created:

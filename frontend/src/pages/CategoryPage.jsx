@@ -9,7 +9,7 @@ import {
   getStoredToken,
 } from "../api";
 import { formatNPR } from "../currency";
-import { getProductImageSrc } from "../productImages";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
 import { useNotify } from "../contexts/NotifyContext";
@@ -203,7 +203,9 @@ export default function CategoryPage() {
       <header style={page.header}>
         <h1 style={page.title}>Shop by category</h1>
         <p style={page.sub}>
-          Pick a base garment, then customize fabric, colors, and details.
+          Every item below supports <strong>Customize</strong>, <strong>Add to cart</strong>, and{" "}
+          <strong>Buy now</strong> (shipping + eSewa). Customize opens with each product&apos;s original fabric and
+          colors; other fabric <strong>+25%</strong>, other colors <strong>+20%</strong> at payment.
         </p>
         {(searchParams.get("q") || "").trim() ? (
           <p style={page.searchInfo}>
@@ -241,7 +243,7 @@ export default function CategoryPage() {
                     <img
                       src={getProductImageSrc(p)}
                       alt={p.name}
-                      style={page.img}
+                      style={{ ...page.img, ...getProductImageStyle(p) }}
                     />
                   </Link>
                 </div>
@@ -317,6 +319,7 @@ const page = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   imgLink: {
     display: "block",

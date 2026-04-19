@@ -127,6 +127,27 @@ const PANT_IMAGES_BY_SLUG = {
   "black-high-waist-leggings": pantBlackLeggings,
 };
 
+/**
+ * Extra img styles for full-look photos where the UI should crop to the garment (e.g. skirt focus).
+ * Use inside a container with overflow: hidden and fixed height.
+ */
+const CATALOG_IMAGE_FOCUS_BY_SLUG = {
+  // White mini + crop top set: emphasize midriff + skirt (catalog is skirt-only product).
+  "white-mini-side-slit-skirt": {
+    objectFit: "cover",
+    objectPosition: "50% 78%",
+    transform: "scale(1.55)",
+    transformOrigin: "center 85%",
+    width: "100%",
+    height: "100%",
+  },
+};
+
+export function getProductImageStyle(product) {
+  if (!product?.slug) return {};
+  return { ...(CATALOG_IMAGE_FOCUS_BY_SLUG[product.slug] || {}) };
+}
+
 export function getProductImageSrc(product) {
   if (product.product_type === "jacket" && JACKET_IMAGES_BY_SLUG[product.slug]) {
     return JACKET_IMAGES_BY_SLUG[product.slug];

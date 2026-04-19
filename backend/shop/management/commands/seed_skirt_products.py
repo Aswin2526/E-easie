@@ -10,64 +10,66 @@ from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
 
-from shop.default_part_colors import default_part_colors_for_seed
+from shop.default_part_colors import default_fabric_for_seed, default_part_colors_for_seed
 from shop.models import Order, Product
 
+# Prices are Nepalese Rupees (NPR), typical mid-market retail in Nepal (whole rupees only).
+# (stable slug, display name, description, base_price_npr, image filename under media/products/)
 SKIRT_ITEMS = [
     (
         "grey-pleated-mini-skirt",
         "Grey Pleated Mini Skirt",
         "High-waisted heather grey mini with sharp box pleats and a structured woven drape.",
-        "44.00",
+        "749",
         "skirt-grey-pleated-mini.png",
     ),
     (
         "pink-plaid-pleated-mini-skirt",
         "Pink Plaid Pleated Mini Skirt",
         "Vibrant pink plaid mini with knife pleats and an A-line tennis-skirt silhouette.",
-        "42.00",
+        "799",
         "skirt-pink-plaid-pleated.png",
     ),
     (
         "white-tiered-maxi-skirt",
         "White Tiered Maxi Skirt",
         "Flowy high-waisted white maxi with three tiers and a gathered elastic waist.",
-        "48.00",
+        "999",
         "skirt-white-tiered-maxi.png",
     ),
     (
         "brown-high-waist-pleated-maxi-skirt",
         "Brown High-Waist Pleated Maxi Skirt",
         "Warm brown maxi with a V-shaped yoke front and voluminous pleated A-line skirt.",
-        "52.00",
+        "1049",
         "skirt-brown-high-waist-maxi.png",
     ),
     (
         "black-bodycon-mini-skirt",
         "Classic Black Bodycon Mini Skirt",
         "Sleek stretch mini with a body-hugging fit and clean elastic waist—an everyday essential.",
-        "38.00",
+        "649",
         "skirt-black-bodycon-mini.png",
     ),
     (
         "black-ruched-side-slit-maxi-skirt",
         "Black Ruched Side-Slit Maxi Skirt",
         "High-waisted black maxi in soft stretch jersey with hip ruching and a thigh-high side slit.",
-        "46.00",
+        "949",
         "skirt-black-ruched-slit-maxi.png",
     ),
     (
         "white-mini-side-slit-skirt",
         "White Mini Skirt with Side Slit",
         "Crisp white bodycon mini with a subtle side slit and smooth stretch fabric.",
-        "40.00",
+        "699",
         "skirt-white-mini-side-slit.png",
     ),
     (
         "high-waist-denim-pencil-skirt",
         "High-Waist Denim Pencil Skirt",
         "Medium-wash denim midi with five-pocket styling, zip fly, and a front-side hem slit.",
-        "54.00",
+        "1199",
         "skirt-high-waist-denim-pencil.png",
     ),
 ]
@@ -127,6 +129,7 @@ class Command(BaseCommand):
                         "default_part_colors": default_part_colors_for_seed(
                             slug, Product.ProductType.SKIRT.value
                         ),
+                        "default_fabric": default_fabric_for_seed(slug),
                     },
                 )
             if was_created:

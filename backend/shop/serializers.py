@@ -25,6 +25,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "description",
             "base_price",
             "default_part_colors",
+            "default_fabric",
             "image",
             "is_active",
             "created_at",
@@ -227,11 +228,15 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
         # Direct buy path: generate a minimal customization snapshot automatically.
         if customization is None:
+            valid_fabrics = {c.value for c in Customization.Fabric}
+            fab = (getattr(product, "default_fabric", None) or "").strip().lower()
+            if fab not in valid_fabrics:
+                fab = Customization.Fabric.COTTON.value
             customization = Customization.objects.create(
                 user=user,
                 product=product,
                 title="Direct Purchase",
-                fabric=Customization.Fabric.COTTON,
+                fabric=fab,
                 part_colors={},
                 size="M",
                 custom_size="",
@@ -265,6 +270,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
 class OrderListSerializer(serializers.ModelSerializer):
     customization_summary = serializers.SerializerMethodField()
+    product = serializers.SerializerMethodField()
+    review_eligible = serializers.SerializerMethodField()
+    product_review = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -282,11 +290,60 @@ class OrderListSerializer(serializers.ModelSerializer):
             "customization",
             "customization_summary",
             "guest_email",
+            "product",
+            "review_eligible",
+            "product_review",
         )
         read_only_fields = fields
 
     def get_customization_summary(self, obj):
         return str(obj.customization)
+
+    def get_product(self, obj):
+        p = obj.customization.product
+        image_url = None
+        if p.image:
+            try:
+                image_url = p.image.url
+            except Exception:
+                image_url = None
+        return {
+            "id": p.id,
+            "name": p.name,
+            "slug": p.slug,
+            "product_type": p.product_type,
+            "product_type_display": p.get_product_type_display(),
+            "image": image_url,
+            "base_price": str(p.base_price),
+        }
+
+    def get_review_eligible(self, obj):
+        if obj.status != Order.Status.DELIVERED:
+            return False
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if not user or not user.is_authenticated or obj.user_id is None:
+            return False
+        return obj.user_id == user.id
+
+    def get_product_review(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        if not user or not user.is_authenticated or obj.user_id != user.id:
+            return None
+        pid = obj.customization.product_id
+        cache = self.context.get("product_ratings_by_product_id")
+        if isinstance(cache, dict):
+            r = cache.get(pid)
+        else:
+            r = ProductRating.objects.filter(user=user, product_id=pid).first()
+        if not r:
+            return None
+        return {
+            "stars": r.stars,
+            "comment": r.comment,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        }
 
 class WishlistSerializer(serializers.ModelSerializer):
     product_detail = ProductSerializer(source="product", read_only=True)

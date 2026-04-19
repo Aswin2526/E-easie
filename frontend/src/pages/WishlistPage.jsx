@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchWishlist, removeFromWishlist, addToCart } from "../api";
+import { fetchWishlist, removeFromWishlist, addToCart, getStoredToken } from "../api";
 import { formatNPR } from "../currency";
-import { getProductImageSrc } from "../productImages";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function WishlistPage() {
@@ -54,6 +54,14 @@ export default function WishlistPage() {
     }
   }
 
+  function handleBuyNow(product) {
+    if (!getStoredToken()) {
+      toast.warning("Sign in required", "Please sign in to place an order.");
+      return;
+    }
+    navigate(`/checkout/buy?product=${encodeURIComponent(product.id)}`);
+  }
+
   if (loading) return <div style={s.centered}>Loading Wishlist...</div>;
   if (error) return <div style={s.centered}><p style={{color:"red"}}>{error}</p></div>;
 
@@ -69,15 +77,20 @@ export default function WishlistPage() {
             return (
               <article key={item.id} style={s.card}>
                 <div style={s.imgWrap}>
-                  <img src={getProductImageSrc(p)} alt={p.name} style={s.img} />
+                  <img src={getProductImageSrc(p)} alt={p.name} style={{ ...s.img, ...getProductImageStyle(p) }} />
                 </div>
                 <div style={s.cardBody}>
                   <h3 style={s.cardTitle}>{p.name}</h3>
                   <p style={s.price}>{formatNPR(p.base_price)}</p>
                   <div style={s.buttonGroup}>
-                    <button style={s.btnPrimary} onClick={() => handleAddToCart(p)}>
-                      Add to Cart
-                    </button>
+                    <div style={s.cartBuyRow}>
+                      <button style={s.btnPrimary} onClick={() => handleAddToCart(p)}>
+                        Add to Cart
+                      </button>
+                      <button type="button" style={s.btnBuyNow} onClick={() => handleBuyNow(p)}>
+                        Buy now
+                      </button>
+                    </div>
                     <button style={s.btnSecondary} onClick={() => navigate(`/customize?category=${p.product_type}&product=${p.id}&primary=${p.id}`)}>Customize</button>
                     <button style={s.btnDanger} onClick={() => handleRemove(item.id)}>Remove</button>
                   </div>
@@ -111,7 +124,14 @@ const s = {
     flexDirection: "column",
     height: "100%",
   },
-  imgWrap: { height: "220px", background: "#e5e5e5", display: "flex", alignItems: "center", justifyContent: "center" },
+  imgWrap: {
+    height: "220px",
+    background: "#e5e5e5",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
   img: { width: "100%", height: "100%", objectFit: "cover" },
   cardBody: { padding: "16px", flex: 1, display: "flex", flexDirection: "column", gap: "12px" },
   cardTitle: {
@@ -127,7 +147,19 @@ const s = {
   },
   price: { color: "#444", margin: "0 0 8px 0", lineHeight: 1.35, minHeight: "1.35em" },
   buttonGroup: { display: "flex", flexDirection: "column", flexWrap: "nowrap", gap: "8px", marginTop: "auto" },
+  cartBuyRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%" },
   btnPrimary: { background: "#1a1a2e", color: "#fff", border: "none", padding: "10px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "700", width: "100%" },
+  btnBuyNow: {
+    width: "100%",
+    padding: "10px 12px",
+    background: "#e7f8ea",
+    color: "#1f2937",
+    border: "1px solid #c8e9cd",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "700",
+  },
   btnSecondary: { background: "transparent", color: "#1a1a2e", border: "1px solid #1a1a2e", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", width: "100%" },
   btnDanger: { background: "transparent", color: "#d9534f", border: "1px solid #d9534f", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", width: "100%" }
 };

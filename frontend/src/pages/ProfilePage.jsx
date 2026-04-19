@@ -7,10 +7,11 @@ import {
   fetchMyCustomizations,
   fetchMyOrders,
   fetchWishlist,
+  postProductRating,
 } from "../api";
 import { apiErrorMessage } from "../admin/adminUtils";
 import { formatNPR } from "../currency";
-import { getProductImageSrc } from "../productImages";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import { useNotify } from "../contexts/NotifyContext";
 
 function normalizeList(data) {
@@ -46,6 +47,9 @@ export default function ProfilePage() {
   const [orders, setOrders] = useState([]);
   const [customizations, setCustomizations] = useState([]);
   const [cancellingId, setCancellingId] = useState(null);
+  /** { orderId, productId, stars, comment } while editing a delivered-order review */
+  const [reviewDraft, setReviewDraft] = useState(null);
+  const [reviewSavingId, setReviewSavingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +97,41 @@ export default function ProfilePage() {
       toast.error("Could not cancel", err.message || "Try again or use Track order.");
     } finally {
       setCancellingId(null);
+    }
+  }
+
+  function openOrderReviewForm(order) {
+    const p = order.product;
+    const pid = p?.id;
+    if (!pid) return;
+    const pr = order.product_review;
+    setReviewDraft({
+      orderId: order.id,
+      productId: pid,
+      stars: pr?.stars ?? 5,
+      comment: pr?.comment ?? "",
+    });
+  }
+
+  async function submitOrderReview() {
+    if (!reviewDraft?.productId) return;
+    setReviewSavingId(reviewDraft.orderId);
+    try {
+      await postProductRating(reviewDraft.productId, {
+        stars: reviewDraft.stars,
+        comment: (reviewDraft.comment || "").trim(),
+      });
+      toast.success("Review saved", "Thank you for your feedback.");
+      const next = await fetchMyOrders();
+      setOrders(normalizeList(next));
+      setReviewDraft(null);
+    } catch (err) {
+      const raw = err?.data;
+      let msg = err.message || "Could not save review.";
+      if (typeof raw === "object" && raw?.detail) msg = String(raw.detail);
+      toast.error("Review not saved", msg);
+    } finally {
+      setReviewSavingId(null);
     }
   }
 
@@ -177,7 +216,7 @@ export default function ProfilePage() {
               if (!p) return null;
               return (
                 <li key={item.id} style={styles.listItem}>
-                  <img src={getProductImageSrc(p)} alt="" style={styles.thumb} />
+                  <img src={getProductImageSrc(p)} alt="" style={{ ...styles.thumb, ...getProductImageStyle(p) }} />
                   <div style={styles.listBody}>
                     <div style={styles.itemTitle}>{p.name}</div>
                     <div style={styles.itemMeta}>
@@ -215,7 +254,7 @@ export default function ProfilePage() {
               if (!p) return null;
               return (
                 <li key={w.id} style={styles.listItem}>
-                  <img src={getProductImageSrc(p)} alt="" style={styles.thumb} />
+                  <img src={getProductImageSrc(p)} alt="" style={{ ...styles.thumb, ...getProductImageStyle(p) }} />
                   <div style={styles.listBody}>
                     <div style={styles.itemTitle}>{p.name}</div>
                     <div style={styles.itemMeta}>
@@ -240,31 +279,160 @@ export default function ProfilePage() {
           <p style={styles.muted}>No orders yet.</p>
         ) : (
           <ul style={styles.list}>
-            {scopedOrders.map((o) => (
-              <li key={o.id} style={{ ...styles.listItem, alignItems: "flex-start" }}>
-                <div style={styles.orderBadge}>#{o.id}</div>
-                <div style={styles.listBody}>
-                  <div style={styles.itemTitle}>
-                    {o.customization_summary || "Order"} · {String(o.status || "").replace(/_/g, " ")}
-                  </div>
-                  <div style={styles.itemMeta}>
-                    Qty {o.quantity} · {formatNPR(o.total_price)} · {formatWhen(o.placed_at)}
-                  </div>
-                  {orderCanCancel(o.status) ? (
-                    <div style={{ marginTop: "10px" }}>
-                      <button
-                        type="button"
-                        style={styles.cancelBtn}
-                        disabled={cancellingId === o.id}
-                        onClick={() => handleCancelOrder(o)}
-                      >
-                        {cancellingId === o.id ? "Cancelling…" : "Cancel order"}
-                      </button>
+            {scopedOrders.map((o) => {
+              const p = o.product;
+              const showReview = o.review_eligible && p?.slug;
+              const isEditing = reviewDraft && reviewDraft.orderId === o.id;
+              return (
+                <li key={o.id} style={{ ...styles.listItem, alignItems: "flex-start" }}>
+                  {p?.slug ? (
+                    <Link to={`/product/${p.slug}`} style={{ flexShrink: 0 }}>
+                      <img
+                        src={getProductImageSrc(p)}
+                        alt=""
+                        style={{ ...styles.thumb, ...getProductImageStyle(p) }}
+                      />
+                    </Link>
+                  ) : (
+                    <div style={styles.orderBadge}>#{o.id}</div>
+                  )}
+                  <div style={styles.listBody}>
+                    <div style={styles.itemTitle}>
+                      Order #{o.id}
+                      {p?.name ? ` · ${p.name}` : ` · ${o.customization_summary || "Item"}`} ·{" "}
+                      {String(o.status || "").replace(/_/g, " ")}
                     </div>
-                  ) : null}
-                </div>
-              </li>
-            ))}
+                    <div style={styles.itemMeta}>
+                      Qty {o.quantity} · {formatNPR(o.total_price)} · {formatWhen(o.placed_at)}
+                      {p?.slug ? (
+                        <>
+                          {" · "}
+                          <Link to={`/product/${p.slug}`} style={styles.sectionLink}>
+                            View product
+                          </Link>
+                        </>
+                      ) : null}
+                    </div>
+                    {showReview ? (
+                      <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #eef1f8" }}>
+                        {o.product_review && !isEditing ? (
+                          <div>
+                            <div style={{ fontSize: "13px", fontWeight: 600, color: "#334155" }}>
+                              Your review:{" "}
+                              <span style={{ color: "#ca8a04" }}>
+                                {"★".repeat(o.product_review.stars)}
+                                {"☆".repeat(5 - o.product_review.stars)}
+                              </span>
+                            </div>
+                            {o.product_review.comment ? (
+                              <p style={{ margin: "6px 0 0", fontSize: "13px", color: "#475569", whiteSpace: "pre-wrap" }}>
+                                {o.product_review.comment}
+                              </p>
+                            ) : null}
+                            <button
+                              type="button"
+                              style={styles.reviewBtn}
+                              onClick={() => openOrderReviewForm(o)}
+                            >
+                              Update review
+                            </button>
+                          </div>
+                        ) : null}
+                        {!o.product_review && !isEditing ? (
+                          <button type="button" style={styles.reviewBtn} onClick={() => openOrderReviewForm(o)}>
+                            Write a review
+                          </button>
+                        ) : null}
+                        {isEditing ? (
+                          <div style={{ marginTop: "8px" }}>
+                            <p style={{ margin: "0 0 6px 0", fontSize: "12px", fontWeight: 700, color: "#64748b" }}>
+                              Rating
+                            </p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px" }}>
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <button
+                                  key={n}
+                                  type="button"
+                                  onClick={() =>
+                                    setReviewDraft((d) => (d && d.orderId === o.id ? { ...d, stars: n } : d))
+                                  }
+                                  style={{
+                                    fontSize: "20px",
+                                    lineHeight: 1,
+                                    padding: "2px 4px",
+                                    border: "none",
+                                    background: "transparent",
+                                    cursor: "pointer",
+                                    color: n <= (reviewDraft?.stars ?? 5) ? "#ca8a04" : "#cbd5e1",
+                                  }}
+                                  aria-label={`${n} stars`}
+                                >
+                                  ★
+                                </button>
+                              ))}
+                            </div>
+                            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#64748b" }}>
+                              Comment (optional)
+                              <textarea
+                                value={reviewDraft?.comment ?? ""}
+                                onChange={(e) =>
+                                  setReviewDraft((d) =>
+                                    d && d.orderId === o.id ? { ...d, comment: e.target.value } : d
+                                  )
+                                }
+                                rows={3}
+                                maxLength={2000}
+                                style={{
+                                  display: "block",
+                                  width: "100%",
+                                  marginTop: "6px",
+                                  padding: "8px 10px",
+                                  borderRadius: "8px",
+                                  border: "1px solid #cbd5e1",
+                                  fontSize: "14px",
+                                  fontFamily: "inherit",
+                                  boxSizing: "border-box",
+                                }}
+                              />
+                            </label>
+                            <div style={{ marginTop: "10px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                style={styles.reviewSubmitBtn}
+                                disabled={reviewSavingId === o.id}
+                                onClick={submitOrderReview}
+                              >
+                                {reviewSavingId === o.id ? "Saving…" : "Submit review"}
+                              </button>
+                              <button
+                                type="button"
+                                style={styles.reviewCancelBtn}
+                                disabled={reviewSavingId === o.id}
+                                onClick={() => setReviewDraft(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {orderCanCancel(o.status) ? (
+                      <div style={{ marginTop: "10px" }}>
+                        <button
+                          type="button"
+                          style={styles.cancelBtn}
+                          disabled={cancellingId === o.id}
+                          onClick={() => handleCancelOrder(o)}
+                        >
+                          {cancellingId === o.id ? "Cancelling…" : "Cancel order"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -385,6 +553,7 @@ const styles = {
     border: "1px solid #eef1f8",
     borderRadius: "10px",
     background: "#fafbff",
+    overflow: "hidden",
   },
   thumb: {
     width: 52,
@@ -435,5 +604,36 @@ const styles = {
     fontSize: "12px",
     fontWeight: 800,
     textAlign: "center",
+  },
+  reviewBtn: {
+    marginTop: "10px",
+    padding: "6px 12px",
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "#1e40af",
+    background: "#eff6ff",
+    border: "1px solid #bfdbfe",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  reviewSubmitBtn: {
+    padding: "6px 14px",
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "#fff",
+    background: "#1a1a2e",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  reviewCancelBtn: {
+    padding: "6px 14px",
+    fontSize: "12px",
+    fontWeight: 700,
+    color: "#475569",
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    cursor: "pointer",
   },
 };

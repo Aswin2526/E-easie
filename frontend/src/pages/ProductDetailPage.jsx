@@ -10,7 +10,7 @@ import {
 } from "../api";
 import { formatNPR } from "../currency";
 import { getTrendingShowcase } from "../data/trendingShowcases";
-import { getProductImageSrc } from "../productImages";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ProductRatingsPanel from "../components/ProductRatingsPanel";
 import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
@@ -192,7 +192,15 @@ export default function ProductDetailPage() {
       <div style={page.grid}>
         <div style={page.imageCol}>
           <div style={page.imgWrap}>
-            <img src={imgSrc} alt={imgAlt} style={page.img} />
+            <img
+              src={imgSrc}
+              alt={imgAlt}
+              style={
+                !isTrending && catalogProduct
+                  ? { ...page.img, ...getProductImageStyle(catalogProduct) }
+                  : page.img
+              }
+            />
           </div>
         </div>
         <div style={page.detailCol}>
@@ -200,7 +208,10 @@ export default function ProductDetailPage() {
           <h1 style={page.title}>{displayTitle}</h1>
           <p style={page.price}>{formatNPR(displayPrice)}</p>
           {isTrending ? (
-            <p style={page.ratingNote}>Featured look — ratings and reviews apply to similar items in the shop catalog.</p>
+            <p style={page.ratingNote}>
+              You can post a review after an order for this product is delivered (from the product page or My Profile →
+              Purchased orders).
+            </p>
           ) : (
             <ProductStarsLine average={catalogProduct.rating_average} count={catalogProduct.rating_count} />
           )}

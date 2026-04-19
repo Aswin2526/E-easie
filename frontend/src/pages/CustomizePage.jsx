@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   activateSubscription,
   addToCart,
@@ -12,8 +12,13 @@ import {
 import { formatNPR } from "../currency";
 import { catalogDefaultPartColors, mergePartColorDefaults } from "../catalogColorDefaults";
 import { normalizeHexColor } from "../colorUtils";
-import { customizationUnitPrice, fabricHasNonCottonMarkup } from "../pricing";
-import { getProductImageSrc } from "../productImages";
+import {
+  customizationUnitPrice,
+  effectiveCatalogPartColors,
+  fabricMarkupApplies,
+  nonDefaultPartColorsMarkup,
+} from "../pricing";
+import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
 import { useNotify } from "../contexts/NotifyContext";
 
@@ -48,6 +53,7 @@ const PART_COLOR_DEFAULTS = {
 
 export default function CustomizePage() {
   const toast = useNotify();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const productFromUrl = searchParams.get("product");
   const primaryFromUrl = searchParams.get("primary");
@@ -257,6 +263,7 @@ export default function CustomizePage() {
       selectedProduct.id,
       selectedProduct.slug,
       selectedProduct.product_type,
+      selectedProduct.default_fabric,
       JSON.stringify(selectedProduct.default_part_colors ?? null),
     ].join("|");
   }, [selectedProduct]);
@@ -278,12 +285,15 @@ export default function CustomizePage() {
     setCollarColor(collar);
     setPatternPrimaryColor(normalizeHexColor(merged.pattern_primary) ?? fb.patternPrimary);
     setPatternSecondaryColor(normalizeHexColor(merged.pattern_secondary) ?? fb.patternSecondary);
+    const df = String(selectedProduct.default_fabric || "cotton").toLowerCase();
+    const allowedFabrics = FABRICS.map((x) => x.value);
+    setFabric(allowedFabrics.includes(df) ? df : "cotton");
   }, [productColorDefaultsKey, selectedCategory]);
 
-  const orderUnitPrice = useMemo(() => {
-    if (!selectedProduct) return null;
-    return customizationUnitPrice(selectedProduct.base_price, fabric);
-  }, [selectedProduct, fabric]);
+  const catalogPartColorRef = useMemo(() => {
+    if (!selectedProduct) return {};
+    return effectiveCatalogPartColors(selectedProduct, selectedCategory);
+  }, [selectedProduct, selectedCategory]);
 
   const activeProductType = selectedProduct?.product_type || selectedCategory;
   const isPant = activeProductType === "pant";
@@ -354,6 +364,30 @@ export default function CustomizePage() {
       patternSecondaryColor,
     ]
   );
+
+  const orderUnitPrice = useMemo(() => {
+    if (!selectedProduct) return null;
+    return customizationUnitPrice(selectedProduct.base_price, fabric, {
+      partColors,
+      catalogReferencePartColors: catalogPartColorRef,
+      defaultFabric: selectedProduct.default_fabric,
+    });
+  }, [selectedProduct, fabric, partColors, catalogPartColorRef]);
+
+  const orderPriceBreakdownNote = useMemo(() => {
+    if (!selectedProduct) return "";
+    const base = formatNPR(selectedProduct.base_price);
+    const bits = [];
+    if (fabricMarkupApplies(fabric, selectedProduct.default_fabric)) {
+      bits.push("+25% vs original fabric");
+    }
+    if (nonDefaultPartColorsMarkup(partColors, catalogPartColorRef)) {
+      bits.push("+20% vs original colors");
+    }
+    if (!bits.length) return "";
+    return ` (base ${base} ${bits.join(", ")})`;
+  }, [selectedProduct, fabric, partColors, catalogPartColorRef]);
+
   const patternForPayload =
     pattern === "check" || pattern === "lines" ? "check_line" : pattern;
 
@@ -505,8 +539,9 @@ export default function CustomizePage() {
       <header style={s.header}>
         <h1 style={s.title}>Customize</h1>
         <p style={s.sub}>
-          Pick a category, then a product. Adjust fabric, colors, size, and style save
-          your design, then place an order.
+          Pick a category, then a product. Each item loads the <strong>original fabric and colors</strong> from the
+          catalog. Changing fabric adds <strong>25%</strong> vs that original; changing colors adds{" "}
+          <strong>20%</strong> (shown in the price line). Or use <strong>Buy now</strong> for checkout with eSewa.
         </p>
         
       </header>
@@ -577,7 +612,7 @@ export default function CustomizePage() {
                         <img
                           src={getProductImageSrc(p)}
                           alt=""
-                          style={s.productThumb}
+                          style={{ ...s.productThumb, ...getProductImageStyle(p) }}
                         />
                       </div>
                       <div style={s.productCardBody}>
@@ -592,13 +627,32 @@ export default function CustomizePage() {
               </div>
             )}
             {selectedCategory && productId && selectedProduct && orderUnitPrice != null && (
-              <p style={s.selectionSummary}>
-                Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
-                {formatNPR(orderUnitPrice)}
-                {fabricHasNonCottonMarkup(fabric)
-                  ? " (base " + formatNPR(selectedProduct.base_price) + " + 25% fabric)"
-                  : ""}
-              </p>
+              <>
+                <p style={s.selectionSummary}>
+                  Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
+                  {formatNPR(orderUnitPrice)}
+                  {orderPriceBreakdownNote}
+                </p>
+                <div style={s.checkoutShortcut}>
+                  <button
+                    type="button"
+                    style={s.checkoutShortcutBtn}
+                    onClick={() => {
+                      if (!getStoredToken()) {
+                        toast.warning("Sign in required", "Please sign in to place an order.");
+                        return;
+                      }
+                      navigate(`/checkout/buy?product=${encodeURIComponent(productId)}`);
+                    }}
+                  >
+                    Buy now — checkout with eSewa
+                  </button>
+                  <p style={s.checkoutShortcutHint}>
+                    Pays for this catalog item as listed (not your custom design). To buy your design, save it and use{" "}
+                    <strong>Add to Cart</strong>.
+                  </p>
+                </div>
+              </>
             )}
           </div>
 
@@ -620,9 +674,9 @@ export default function CustomizePage() {
             ))}
           </select>
         </label>
-        {fabricHasNonCottonMarkup(fabric) ? (
+        {selectedProduct && fabricMarkupApplies(fabric, selectedProduct.default_fabric) ? (
           <p style={s.fabricMarkupHint}>
-            Non-cotton fabric adds a 25% upgrade fee to the garment price at payment.
+            Fabric differs from this product&apos;s original (+25% at payment).
           </p>
         ) : null}
 
@@ -706,6 +760,11 @@ export default function CustomizePage() {
             ) : null}
           </div>
         </fieldset>
+        {nonDefaultPartColorsMarkup(partColors, catalogPartColorRef) ? (
+          <p style={s.fabricMarkupHint}>
+            Colors differ from the original product (+20% at payment).
+          </p>
+        ) : null}
 
         <label style={s.label}>
           Size
@@ -1237,6 +1296,7 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   productThumb: { width: "100%", height: "100%", objectFit: "cover" },
   productCardBody: {
@@ -1287,6 +1347,24 @@ const s = {
     border: "1px solid #e5e7eb",
     fontSize: "14px",
     color: "#374151",
+  },
+  checkoutShortcut: { marginTop: "12px" },
+  checkoutShortcutBtn: {
+    width: "100%",
+    padding: "12px 14px",
+    background: "#1a1a2e",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "700",
+  },
+  checkoutShortcutHint: {
+    margin: "8px 0 0 0",
+    fontSize: "12px",
+    color: "#64748b",
+    lineHeight: 1.45,
   },
   productCustomizeRow: {
     display: "flex",

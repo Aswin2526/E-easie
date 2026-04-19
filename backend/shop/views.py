@@ -511,11 +511,21 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
                     "comment": r.comment,
                     "updated_at": r.updated_at.isoformat() if r.updated_at else None,
                 }
+        can_submit_review = False
+        if request.user.is_authenticated:
+            has_delivered = Order.objects.filter(
+                user=request.user,
+                status=Order.Status.DELIVERED,
+                customization__product=product,
+            ).exists()
+            can_submit_review = bool(mine) or has_delivered
+
         return Response(
             {
                 "average": round(float(avg), 2) if avg is not None else None,
                 "count": int(agg["cnt"] or 0),
                 "mine": mine,
+                "can_submit_review": can_submit_review,
             }
         )
 
@@ -532,6 +542,20 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        has_delivered = Order.objects.filter(
+            user=request.user,
+            status=Order.Status.DELIVERED,
+            customization__product=product,
+        ).exists()
+        already = ProductRating.objects.filter(user=request.user, product=product).exists()
+        if not has_delivered and not already:
+            return Response(
+                {
+                    "detail": "You can review this product after at least one of your orders for it has been delivered.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         write = ProductRatingWriteSerializer(data=request.data)
         write.is_valid(raise_exception=True)
@@ -581,6 +605,43 @@ class OrderViewSet(viewsets.ModelViewSet):
     """Place orders (create) and list own orders."""
 
     http_method_names = ["get", "post", "head", "options"]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        request = ctx.get("request")
+        if (
+            not request
+            or not request.user.is_authenticated
+            or self.action not in ("list", "retrieve")
+        ):
+            ctx["product_ratings_by_product_id"] = {}
+            return ctx
+        if self.action == "list":
+            pids = list(
+                self.filter_queryset(self.get_queryset())
+                .values_list("customization__product_id", flat=True)
+                .distinct()
+            )
+        else:
+            pk = self.kwargs.get("pk")
+            try:
+                pk_int = int(pk)
+            except (TypeError, ValueError):
+                pids = []
+            else:
+                pids = list(
+                    self.get_queryset()
+                    .filter(pk=pk_int)
+                    .values_list("customization__product_id", flat=True)
+                )
+        if not pids:
+            ctx["product_ratings_by_product_id"] = {}
+            return ctx
+        ctx["product_ratings_by_product_id"] = {
+            r.product_id: r
+            for r in ProductRating.objects.filter(user=request.user, product_id__in=pids)
+        }
+        return ctx
 
     def get_permissions(self):
         if self.action in ("create", "track"):

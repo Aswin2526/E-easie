@@ -10,65 +10,66 @@ from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
 
-from shop.default_part_colors import default_part_colors_for_seed
+from shop.default_part_colors import default_fabric_for_seed, default_part_colors_for_seed
 from shop.models import Order, Product
 
-# (stable slug, display name, description, price, image filename under media/products/)
+# Prices are Nepalese Rupees (NPR), whole rupees only, between Rs. 350 and Rs. 800.
+# (stable slug, display name, description, base_price_npr, image filename under media/products/)
 TSHIRT_ITEMS = [
     (
         "classic-white-crew-neck-t-shirt",
         "Classic White Crew Neck T-Shirt",
         "Plain short-sleeve white tee with classic crew neck.",
-        "24.99",
+        "550",
         "tshirt-white-crew-neck.png",
     ),
     (
         "black-long-sleeve-crew-neck-tee",
         "Black Long-Sleeve Crew Neck T-Shirt",
         "Slim-fit black long-sleeve tee with crew neck and curved hem.",
-        "32.00",
+        "750",
         "tshirt-black-long-sleeve.png",
     ),
     (
         "yellow-polo-shirt",
         "Yellow Polo Shirt",
         "Short-sleeve polo with ribbed collar, button placket, and chest logo detail.",
-        "36.50",
+        "800",
         "tshirt-yellow-polo.png",
     ),
     (
         "oversized-white-longline-long-sleeve-tee",
         "Oversized White Longline Long-Sleeve Tee",
         "Oversized long-sleeve white tee with dropped shoulders and side hem slits.",
-        "34.00",
+        "780",
         "tshirt-oversized-white-longline.png",
     ),
     (
         "black-crop-crew-neck-tee",
         "Black Crop Crew Neck T-Shirt",
         "Slim short-sleeve black crop tee with crew neck.",
-        "28.00",
+        "450",
         "tshirt-black-crop-crew.png",
     ),
     (
         "white-long-sleeve-crop-top",
         "White Long-Sleeve Crop Top",
         "White long-sleeve cropped top with crew neck and relaxed shoulders.",
-        "31.00",
+        "650",
         "tshirt-white-long-sleeve-crop.png",
     ),
     (
         "white-relaxed-long-sleeve-tee",
         "White Relaxed Long-Sleeve T-Shirt",
         "Relaxed-fit white long-sleeve tee with crew neck.",
-        "29.50",
+        "700",
         "tshirt-white-relaxed-long-sleeve.png",
     ),
     (
         "blue-sleeveless-ribbed-crop-top",
         "Blue Sleeveless Ribbed Crop Top",
         "Bright blue sleeveless ribbed crop top with crew neck.",
-        "26.00",
+        "350",
         "tshirt-blue-sleeveless-crop.png",
     ),
 ]
@@ -127,6 +128,7 @@ class Command(BaseCommand):
                         "default_part_colors": default_part_colors_for_seed(
                             slug, Product.ProductType.TSHIRT.value
                         ),
+                        "default_fabric": default_fabric_for_seed(slug),
                     },
                 )
             if was_created:
