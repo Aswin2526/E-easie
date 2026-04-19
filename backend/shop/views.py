@@ -108,9 +108,12 @@ def _build_order_tracking_payload(request, order):
     size = customization.custom_size if customization.size == "CUSTOM" and customization.custom_size else customization.size
     needs_design_approval = bool(customization.custom_design) and order.status == Order.Status.PENDING
 
+    # Step indices match TRACK_STEPS: 0=Order Confirmed … 6=Delivered
     status_to_step = {
         Order.Status.PENDING: 1 if needs_design_approval else 0,
-        Order.Status.CONFIRMED: 3,
+        Order.Status.CONFIRMED: 2,
+        Order.Status.QUALITY_CHECK: 3,
+        Order.Status.PACKED: 4,
         Order.Status.SHIPPED: 5,
         Order.Status.DELIVERED: 6,
         Order.Status.CANCELLED: 0,
@@ -120,36 +123,32 @@ def _build_order_tracking_payload(request, order):
     if order.status == Order.Status.CANCELLED:
         paid_amount = Decimal("0")
         payment_status = "Cancelled"
+    elif order.status == Order.Status.PENDING:
+        paid_amount = Decimal("0")
+        payment_status = "Pending"
     else:
-        paid_amount = (
-            order.total_price
-            if order.status in {Order.Status.SHIPPED, Order.Status.DELIVERED}
-            else (order.total_price / 2)
-        )
-        paid_amount = paid_amount if order.status != Order.Status.PENDING else 0
-        if paid_amount >= order.total_price:
-            payment_status = "Paid"
-        elif paid_amount > 0:
-            payment_status = "Partially Paid"
-        else:
-            payment_status = "Pending"
+        # CONFIRMED / SHIPPED / DELIVERED — full payment collected (no "partial" display)
+        paid_amount = order.total_price
+        payment_status = "Paid"
 
     payment_status_color = {
         "Paid": "green",
         "Pending": "yellow",
-        "Partially Paid": "orange",
         "Cancelled": "gray",
     }[payment_status]
 
-    step_entries = []
-    for idx, title in enumerate(TRACK_STEPS):
-        if idx < current_step:
-            state = "done"
-        elif idx == current_step:
-            state = "current"
-        else:
-            state = "upcoming"
-        step_entries.append({"title": title, "state": state})
+    if order.status == Order.Status.DELIVERED:
+        step_entries = [{"title": title, "state": "done"} for title in TRACK_STEPS]
+    else:
+        step_entries = []
+        for idx, title in enumerate(TRACK_STEPS):
+            if idx < current_step:
+                state = "done"
+            elif idx == current_step:
+                state = "current"
+            else:
+                state = "upcoming"
+            step_entries.append({"title": title, "state": state})
 
     tracking_number = f"EE{order.id:06d}"
     order_status_label = "Design Ready" if needs_design_approval else order.get_status_display()
@@ -175,11 +174,38 @@ def _build_order_tracking_payload(request, order):
                 "created_at": order.placed_at.isoformat(),
             }
         )
-    if order.status == Order.Status.CONFIRMED:
+    if order.status in {
+        Order.Status.CONFIRMED,
+        Order.Status.QUALITY_CHECK,
+        Order.Status.PACKED,
+        Order.Status.SHIPPED,
+        Order.Status.DELIVERED,
+    }:
         messages.append(
             {
                 "from": "admin",
                 "text": "Your order is now in production.",
+                "created_at": order.placed_at.isoformat(),
+            }
+        )
+    if order.status in {
+        Order.Status.QUALITY_CHECK,
+        Order.Status.PACKED,
+        Order.Status.SHIPPED,
+        Order.Status.DELIVERED,
+    }:
+        messages.append(
+            {
+                "from": "admin",
+                "text": "Your order passed quality check and is being prepared for shipment.",
+                "created_at": order.placed_at.isoformat(),
+            }
+        )
+    if order.status in {Order.Status.PACKED, Order.Status.SHIPPED, Order.Status.DELIVERED}:
+        messages.append(
+            {
+                "from": "admin",
+                "text": "Your order has been packed and will ship soon.",
                 "created_at": order.placed_at.isoformat(),
             }
         )
@@ -212,7 +238,12 @@ def _build_order_tracking_payload(request, order):
         )
 
     now = timezone.now()
-    cancel_eligible = order.status in {Order.Status.PENDING, Order.Status.CONFIRMED}
+    cancel_eligible = order.status in {
+        Order.Status.PENDING,
+        Order.Status.CONFIRMED,
+        Order.Status.QUALITY_CHECK,
+        Order.Status.PACKED,
+    }
     return_eligible = False
     return_deadline_date = None
     if order.status == Order.Status.DELIVERED:
@@ -634,6 +665,63 @@ class OrderViewSet(viewsets.ModelViewSet):
                 pass
         return Response(OrderListSerializer(order, context={"request": request}).data)
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="pay-with-esewa",
+        permission_classes=[IsAuthenticated],
+    )
+    def pay_with_esewa(self, request, pk=None):
+        """Return signed eSewa fields for an existing order still awaiting payment (pending)."""
+        order = self.get_object()
+        if order.status != Order.Status.PENDING:
+            return Response(
+                {
+                    "detail": "eSewa checkout is only available while the order is awaiting payment (pending status).",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        total_str = format_money(order.total_price)
+        transaction_uuid = str(uuid.uuid4())
+        signature = sign_payment_request(
+            total_str,
+            transaction_uuid,
+            settings.ESEWA_PRODUCT_CODE,
+            settings.ESEWA_SECRET_KEY,
+        )
+        success_url = f"{settings.PUBLIC_BACKEND_BASE}/esewa/success/"
+        failure_url = f"{settings.PUBLIC_BACKEND_BASE}/esewa/failure/"
+        cache.set(
+            f"esewa_pay:{transaction_uuid}",
+            {
+                "order_ids": [order.id],
+                "user_id": request.user.id,
+                "total_amount": total_str,
+            },
+            timeout=3600,
+        )
+        fields = {
+            "amount": total_str,
+            "tax_amount": "0",
+            "total_amount": total_str,
+            "transaction_uuid": transaction_uuid,
+            "product_code": settings.ESEWA_PRODUCT_CODE,
+            "product_service_charge": "0",
+            "product_delivery_charge": "0",
+            "success_url": success_url,
+            "failure_url": failure_url,
+            "signed_field_names": "total_amount,transaction_uuid,product_code",
+            "signature": signature,
+        }
+        return Response(
+            {
+                "epay_url": settings.ESEWA_EPAY_URL,
+                "fields": fields,
+                "order_ids": [order.id],
+            },
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=False, methods=["get"], url_path="track")
     def track(self, request):
         """Look up order by id; guests must also pass matching email."""
@@ -718,6 +806,81 @@ class CartViewSet(viewsets.ViewSet):
                 ser.save()
                 orders.append(ser.instance)
                 item.delete()
+
+        total = sum(Decimal(str(o.total_price)) for o in orders)
+        total_str = format_money(total)
+        transaction_uuid = str(uuid.uuid4())
+        signature = sign_payment_request(
+            total_str,
+            transaction_uuid,
+            settings.ESEWA_PRODUCT_CODE,
+            settings.ESEWA_SECRET_KEY,
+        )
+
+        success_url = f"{settings.PUBLIC_BACKEND_BASE}/esewa/success/"
+        failure_url = f"{settings.PUBLIC_BACKEND_BASE}/esewa/failure/"
+        cache.set(
+            f"esewa_pay:{transaction_uuid}",
+            {
+                "order_ids": [o.id for o in orders],
+                "user_id": request.user.id,
+                "total_amount": total_str,
+            },
+            timeout=3600,
+        )
+
+        fields = {
+            "amount": total_str,
+            "tax_amount": "0",
+            "total_amount": total_str,
+            "transaction_uuid": transaction_uuid,
+            "product_code": settings.ESEWA_PRODUCT_CODE,
+            "product_service_charge": "0",
+            "product_delivery_charge": "0",
+            "success_url": success_url,
+            "failure_url": failure_url,
+            "signed_field_names": "total_amount,transaction_uuid,product_code",
+            "signature": signature,
+        }
+        return Response(
+            {
+                "epay_url": settings.ESEWA_EPAY_URL,
+                "fields": fields,
+                "order_ids": [o.id for o in orders],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"], url_path="buy-now-esewa-checkout")
+    def buy_now_esewa_checkout(self, request):
+        """Create one direct-purchase order (cart unchanged), return signed eSewa form fields."""
+        shipping_address = (request.data.get("shipping_address") or "").strip()
+        if not shipping_address:
+            return Response({"detail": "shipping_address is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        product_id = request.data.get("product")
+        if product_id is None:
+            return Response({"detail": "product is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_qty = request.data.get("quantity", 1)
+        try:
+            quantity = int(raw_qty)
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid quantity."}, status=status.HTTP_400_BAD_REQUEST)
+        if quantity < 1 or quantity > 99:
+            return Response({"detail": "Quantity must be between 1 and 99."}, status=status.HTTP_400_BAD_REQUEST)
+
+        orders = []
+        with transaction.atomic():
+            payload = {
+                "quantity": quantity,
+                "shipping_address": shipping_address,
+                "product": product_id,
+            }
+            ser = OrderCreateSerializer(data=payload, context={"request": request})
+            ser.is_valid(raise_exception=True)
+            ser.save()
+            orders.append(ser.instance)
 
         total = sum(Decimal(str(o.total_price)) for o in orders)
         total_str = format_money(total)

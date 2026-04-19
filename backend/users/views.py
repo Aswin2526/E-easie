@@ -418,18 +418,22 @@ def _payment_fields(order):
             "paid_amount": Decimal("0"),
             "balance_due": order.total_price,
         }
-    if st in {Order.Status.SHIPPED, Order.Status.DELIVERED}:
+    if st in {
+        Order.Status.CONFIRMED,
+        Order.Status.QUALITY_CHECK,
+        Order.Status.PACKED,
+        Order.Status.SHIPPED,
+        Order.Status.DELIVERED,
+    }:
         return {
             "payment_status": "Paid",
             "paid_amount": order.total_price,
             "balance_due": Decimal("0"),
         }
-    # confirmed
-    half = order.total_price / Decimal(2)
     return {
-        "payment_status": "Partially paid",
-        "paid_amount": half,
-        "balance_due": order.total_price - half,
+        "payment_status": "Pending",
+        "paid_amount": Decimal("0"),
+        "balance_due": order.total_price,
     }
 
 
@@ -485,8 +489,9 @@ def admin_order_detail(request, order_id):
     prev_status = order.status
     raw_status = str(request.data.get("status", "")).strip().lower()
     if raw_status not in {choice.value for choice in Order.Status}:
+        allowed = ", ".join(c.value for c in Order.Status)
         return Response(
-            {"detail": "Invalid status. Allowed: pending, confirmed, shipped, delivered, cancelled."},
+            {"detail": f"Invalid status. Allowed: {allowed}."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 

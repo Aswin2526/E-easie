@@ -1,6 +1,11 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+# Non-cotton fabrics: +25% on product base price (order / payment).
+FABRIC_NON_COTTON_MARKUP = Decimal("0.25")
 
 
 class Product(models.Model):
@@ -21,6 +26,11 @@ class Product(models.Model):
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=100)
     image = models.ImageField(upload_to="products/", blank=True, null=True)
+    default_part_colors = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Optional map of part keys to #hex defaults for the customize UI, e.g. {"body":"#f5f5f5","sleeves":"#1a1a1a"}.',
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -158,6 +168,14 @@ class Customization(models.Model):
     class Meta:
         ordering = ["-updated_at"]
 
+    def unit_price_for_order(self) -> Decimal:
+        """Per-unit NPR for this design: base garment price, +25% when fabric is not cotton."""
+        base = Decimal(str(self.product.base_price))
+        if self.fabric == self.Fabric.COTTON:
+            return base.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        marked = base * (Decimal("1") + FABRIC_NON_COTTON_MARKUP)
+        return marked.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     def __str__(self) -> str:
         label = self.title or f"Design #{self.pk}"
         return f"{label} — {self.product.name}"
@@ -169,6 +187,8 @@ class Order(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         CONFIRMED = "confirmed", "Confirmed"
+        QUALITY_CHECK = "quality_check", "Quality check"
+        PACKED = "packed", "Packed"
         SHIPPED = "shipped", "Shipped"
         DELIVERED = "delivered", "Delivered"
         CANCELLED = "cancelled", "Cancelled"

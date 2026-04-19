@@ -113,6 +113,14 @@ export function cancelMyOrder(orderId, { cancelDescription } = {}) {
   });
 }
 
+/** Resume eSewa for an existing pending order (same redirect flow as cart / buy-now). */
+export function payOrderWithEsewa(orderId) {
+  return apiFetch(`/api/orders/${orderId}/pay-with-esewa/`, {
+    method: "POST",
+    body: "{}",
+  });
+}
+
 /** List current user's saved customizations (GET). */
 export function fetchMyCustomizations() {
   return apiFetch("/api/customizations/");
@@ -123,6 +131,18 @@ export function checkoutCartWithEsewa(shippingAddress) {
   return apiFetch("/api/cart/esewa-checkout/", {
     method: "POST",
     body: JSON.stringify({ shipping_address: shippingAddress }),
+  });
+}
+
+/** Direct buy: one product line, cart is not modified. Same eSewa flow as cart checkout. */
+export function checkoutBuyNowWithEsewa({ product, quantity = 1, shippingAddress }) {
+  return apiFetch("/api/cart/buy-now-esewa-checkout/", {
+    method: "POST",
+    body: JSON.stringify({
+      product,
+      quantity,
+      shipping_address: shippingAddress,
+    }),
   });
 }
 
@@ -137,6 +157,7 @@ export function submitEsewaPaymentForm(epayUrl, fields) {
   form.method = "POST";
   form.action = epayUrl;
   form.acceptCharset = "UTF-8";
+  form.style.display = "none";
   for (const [name, value] of Object.entries(fields)) {
     const input = document.createElement("input");
     input.type = "hidden";

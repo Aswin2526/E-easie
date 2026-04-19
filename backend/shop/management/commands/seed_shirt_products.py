@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
 
+from shop.default_part_colors import default_part_colors_for_seed
 from shop.models import Order, Product
 
 SHIRT_ITEMS = [
@@ -123,6 +124,9 @@ class Command(BaseCommand):
                         "base_price": Decimal(price),
                         "is_active": True,
                         "image": django_file,
+                        "default_part_colors": default_part_colors_for_seed(
+                            slug, Product.ProductType.SHIRT.value
+                        ),
                     },
                 )
             if was_created:

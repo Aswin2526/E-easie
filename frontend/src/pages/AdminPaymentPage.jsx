@@ -14,6 +14,8 @@ const PAYMENT_FILTERS = [
 const ORDER_STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "confirmed", label: "Confirmed" },
+  { value: "quality_check", label: "Quality check" },
+  { value: "packed", label: "Packed" },
   { value: "shipped", label: "Shipped" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
@@ -30,7 +32,6 @@ function paymentBadgeStyle(status) {
   const st = String(status || "").toLowerCase();
   if (st === "paid") return { ...payBase, background: "#dcfce7", color: "#15803d" };
   if (st === "pending") return { ...payBase, background: "#fef9c3", color: "#a16207" };
-  if (st.includes("partial")) return { ...payBase, background: "#ffedd5", color: "#c2410c" };
   if (st === "cancelled") return { ...payBase, background: "#f3f4f6", color: "#6b7280" };
   return { ...payBase, background: "#e0e7ff", color: "#4338ca" };
 }

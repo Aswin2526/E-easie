@@ -24,6 +24,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_type_display",
             "description",
             "base_price",
+            "default_part_colors",
             "image",
             "is_active",
             "created_at",
@@ -213,11 +214,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get("request")
-        qty = validated_data.get("quantity") or 1
+        qty = int(validated_data.get("quantity") or 1)
         product = validated_data["product"]
         customization = validated_data.get("customization")
-        unit = product.base_price
-        total = unit * qty if isinstance(unit, Decimal) else Decimal(str(unit)) * qty
 
         if request and request.user.is_authenticated:
             user = request.user
@@ -248,6 +247,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 neck_design="",
                 notes="Auto-created for direct order without customization.",
             )
+
+        unit = customization.unit_price_for_order()
+        total = (unit * Decimal(qty)).quantize(Decimal("0.01"))
 
         return Order.objects.create(
             user=user,

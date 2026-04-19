@@ -33,7 +33,7 @@ function sameUserId(a, b) {
 
 function orderCanCancel(status) {
   const s = String(status || "").toLowerCase();
-  return s === "pending" || s === "confirmed";
+  return ["pending", "confirmed", "quality_check", "packed"].includes(s);
 }
 
 export default function ProfilePage() {

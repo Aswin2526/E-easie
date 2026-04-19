@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchCart, patchCartItem, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
+import { customizationUnitPrice, fabricHasNonCottonMarkup } from "../pricing";
 import { getProductImageSrc } from "../productImages";
 import { useNotify } from "../contexts/NotifyContext";
 
@@ -131,12 +132,6 @@ export default function CartPage() {
       const res = await checkoutCartWithEsewa(shippingAddress.trim());
       window.dispatchEvent(new Event("cart-updated"));
       if (res?.epay_url && res?.fields) {
-        toast.notify({
-          variant: "info",
-          title: "eSewa",
-          message: "A secure payment window will open. Complete payment there, then return here if prompted.",
-          duration: 4500,
-        });
         submitEsewaPaymentForm(res.epay_url, res.fields);
         return;
       }
@@ -152,7 +147,14 @@ export default function CartPage() {
   if (error) return <div style={s.centered}><p style={{color:"red"}}>{error}</p></div>;
 
   const items = cart?.items || [];
-  const total = items.reduce((acc, item) => acc + (parseFloat(item.product_detail.base_price) * item.quantity), 0);
+  const total = items.reduce((acc, item) => {
+    const p = item.product_detail;
+    const unit =
+      item.customization && item.customization_detail
+        ? customizationUnitPrice(p.base_price, item.customization_detail.fabric)
+        : parseFloat(p.base_price);
+    return acc + unit * item.quantity;
+  }, 0);
 
   return (
     <div style={s.wrap}>
@@ -164,6 +166,10 @@ export default function CartPage() {
           <div style={s.itemsList}>
             {items.map((item) => {
               const p = item.product_detail;
+              const unit =
+                item.customization && item.customization_detail
+                  ? customizationUnitPrice(p.base_price, item.customization_detail.fabric)
+                  : parseFloat(p.base_price);
               return (
                 <div key={item.id} style={s.cartItem}>
                   <img src={getProductImageSrc(p)} alt={p.name} style={s.itemImage} />
@@ -193,11 +199,16 @@ export default function CartPage() {
                         </button>
                       </div>
                     </div>
-                    <p style={s.itemPrice}>{formatNPR(p.base_price)}</p>
+                    <p style={s.itemPrice}>{formatNPR(unit)}</p>
                     {!item.customization ? (
                       <p style={s.warningText}>Direct purchase item (no customization)</p>
                     ) : (
-                      <p style={s.successText}>Customization applied</p>
+                      <p style={s.successText}>
+                        Customization applied
+                        {fabricHasNonCottonMarkup(item.customization_detail?.fabric)
+                          ? " · +25% fabric vs cotton"
+                          : ""}
+                      </p>
                     )}
                   </div>
                   <div style={s.itemActions}>

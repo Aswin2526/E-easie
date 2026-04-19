@@ -1,13 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { cancelMyOrder, fetchTrackedOrders, getStoredToken, trackOrder } from "../api";
+import {
+  cancelMyOrder,
+  fetchTrackedOrders,
+  getStoredToken,
+  payOrderWithEsewa,
+  submitEsewaPaymentForm,
+  trackOrder,
+} from "../api";
 import { formatNPR } from "../currency";
 import { useNotify } from "../contexts/NotifyContext";
 
 const STATUS_COLORS = {
   Paid: "#15803d",
   Pending: "#ca8a04",
-  "Partially Paid": "#ea580c",
   Cancelled: "#64748b",
 };
 
@@ -25,6 +31,7 @@ export default function TrackOrderPage() {
   const [designDecision, setDesignDecision] = useState("");
   const [revisionText, setRevisionText] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
+  const [esewaResumeBusy, setEsewaResumeBusy] = useState(false);
 
   useEffect(() => {
     const payment = searchParams.get("payment");
@@ -95,6 +102,25 @@ export default function TrackOrderPage() {
     return () => {
       cancelled = true;
     };
+  }, [loggedIn]);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    function refreshOrdersFromServer() {
+      if (document.visibilityState !== "visible") return;
+      fetchTrackedOrders()
+        .then((data) => {
+          const loaded = Array.isArray(data?.orders) ? data.orders : [];
+          setOrders(loaded);
+          setResult((prev) => {
+            if (!prev?.order_id) return loaded[0] ?? null;
+            return loaded.find((o) => o.order_id === prev.order_id) ?? prev;
+          });
+        })
+        .catch(() => {});
+    }
+    document.addEventListener("visibilitychange", refreshOrdersFromServer);
+    return () => document.removeEventListener("visibilitychange", refreshOrdersFromServer);
   }, [loggedIn]);
 
   useEffect(() => {
@@ -172,6 +198,32 @@ export default function TrackOrderPage() {
     }
   };
 
+  const canPayPendingOnline = Boolean(
+    loggedIn &&
+      selectedOrder?.payment?.status === "Pending" &&
+      Number(selectedOrder.payment?.remaining_amount) > 0
+  );
+
+  async function handlePayPendingWithEsewa() {
+    if (!selectedOrder || !loggedIn) return;
+    setEsewaResumeBusy(true);
+    try {
+      const res = await payOrderWithEsewa(selectedOrder.order_id);
+      if (res?.epay_url && res?.fields) {
+        submitEsewaPaymentForm(res.epay_url, res.fields);
+        return;
+      }
+      toast.error("eSewa", "Payment could not be started. Try again or contact support.");
+    } catch (err) {
+      toast.error(
+        "eSewa checkout",
+        err.message || "Could not start payment. You may need to sign in again."
+      );
+    } finally {
+      setEsewaResumeBusy(false);
+    }
+  }
+
   const handlePrintReport = () => {
     if (!selectedOrder) return;
     const reportWindow = window.open("", "_blank", "width=900,height=700");
@@ -207,7 +259,7 @@ export default function TrackOrderPage() {
             .tag { display: inline-block; padding: 4px 10px; border-radius: 999px; color: #fff; font-weight: 700; }
             .paid { background: #15803d; }
             .pending { background: #ca8a04; }
-            .partial { background: #ea580c; }
+            .cancelled { background: #64748b; }
             @media print { button { display: none; } }
           </style>
         </head>
@@ -243,7 +295,7 @@ export default function TrackOrderPage() {
                   ? "paid"
                   : selectedOrder.payment?.status === "Pending"
                     ? "pending"
-                    : "partial"
+                    : "cancelled"
               }">${selectedOrder.payment?.status || "-"}</span>
             </div>
           </div>
@@ -339,8 +391,9 @@ export default function TrackOrderPage() {
             <div style={s.card}>
               <h2 style={s.cardTitle}>Cancel order</h2>
               <p style={s.policyText}>
-                You can cancel while the order is still <strong>pending</strong> or <strong>confirmed</strong> (before
-                it ships). After cancellation, payment handling follows our standard refund timeline.
+                You can cancel while the order is still <strong>pending</strong>, <strong>confirmed</strong>, in{" "}
+                <strong>quality check</strong>, or <strong>packed</strong> (before it ships). After cancellation,
+                payment handling follows our standard refund timeline.
               </p>
               <button type="button" style={s.cancelOrderBtn} disabled={loading} onClick={handleCancelOrder}>
                 {loading ? "Please wait…" : "Cancel this order"}
@@ -416,14 +469,31 @@ export default function TrackOrderPage() {
               <Row label="Remaining" value={formatNPR(selectedOrder.payment?.remaining_amount)} />
               <div style={s.row}>
                 <span style={s.rowLabel}>Status</span>
-                <span
-                  style={{
-                    ...s.paymentTag,
-                    background: STATUS_COLORS[selectedOrder.payment?.status] || "#64748b",
-                  }}
-                >
-                  {selectedOrder.payment?.status}
-                </span>
+                {canPayPendingOnline ? (
+                  <button
+                    type="button"
+                    style={{
+                      ...s.paymentTag,
+                      ...s.paymentTagBtn,
+                      background: STATUS_COLORS[selectedOrder.payment?.status] || "#64748b",
+                    }}
+                    onClick={handlePayPendingWithEsewa}
+                    disabled={esewaResumeBusy}
+                    title="Pay the remaining balance with eSewa"
+                    aria-label="Pay with eSewa; order payment is pending"
+                  >
+                    {esewaResumeBusy ? "Opening eSewa…" : selectedOrder.payment?.status}
+                  </button>
+                ) : (
+                  <span
+                    style={{
+                      ...s.paymentTag,
+                      background: STATUS_COLORS[selectedOrder.payment?.status] || "#64748b",
+                    }}
+                  >
+                    {selectedOrder.payment?.status}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -590,6 +660,13 @@ const s = {
     padding: "4px 10px",
     fontWeight: 700,
     width: "fit-content",
+  },
+  paymentTagBtn: {
+    border: "none",
+    cursor: "pointer",
+    font: "inherit",
+    textAlign: "left",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
   },
   trackWrap: { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" },
   copyBtn: {

@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Warm connections before checkout POST so eSewa + captcha load a bit sooner -->
+    <link rel="dns-prefetch" href="https://rc-epay.esewa.com.np" />
+    <link rel="preconnect" href="https://rc-epay.esewa.com.np" />
+    <link rel="dns-prefetch" href="https://rc.esewa.com.np" />
+    <link rel="preconnect" href="https://www.google.com" />
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
     <title>E-easie</title>
   </head>
   <body>

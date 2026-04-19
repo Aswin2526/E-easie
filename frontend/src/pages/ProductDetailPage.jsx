@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   addToCart,
   addToWishlist,
   fetchProductByIdOrSlug,
   fetchWishlist,
   getStoredToken,
-  placeOrder,
   removeFromWishlist,
 } from "../api";
 import { formatNPR } from "../currency";
@@ -19,6 +18,7 @@ import { useNotify } from "../contexts/NotifyContext";
 
 export default function ProductDetailPage() {
   const toast = useNotify();
+  const navigate = useNavigate();
   const { slugOrId } = useParams();
   const showcase = useMemo(() => getTrendingShowcase(slugOrId), [slugOrId]);
 
@@ -120,27 +120,12 @@ export default function ProductDetailPage() {
     }
   }
 
-  async function handleBuyNow(p, displayName) {
+  function handleBuyNow(p) {
     if (!getStoredToken()) {
       toast.warning("Sign in required", "Please sign in to place an order.");
       return;
     }
-    const shippingAddress = window.prompt("Enter shipping address:");
-    if (!shippingAddress || !shippingAddress.trim()) return;
-    const payload = {
-      product: p.id,
-      quantity: 1,
-      shipping_address: shippingAddress.trim(),
-    };
-    try {
-      await placeOrder(payload);
-      toast.success(
-        "Order placed",
-        `${displayName} — Track status anytime from Track Order in the menu.`
-      );
-    } catch (err) {
-      toast.error("Order failed", err.message || "We could not place your order. Please try again.");
-    }
+    navigate(`/checkout/buy?product=${encodeURIComponent(p.id)}`);
   }
 
   if (pending && !showcase) {
@@ -250,7 +235,7 @@ export default function ProductDetailPage() {
                 type="button"
                 style={{ ...page.btnBuy, ...(ctaDisabled ? page.btnDisabled : {}) }}
                 disabled={ctaDisabled}
-                onClick={() => ctaProduct && handleBuyNow(ctaProduct, orderLabel)}
+                onClick={() => ctaProduct && handleBuyNow(ctaProduct)}
               >
                 Buy now
               </button>

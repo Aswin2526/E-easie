@@ -10,6 +10,9 @@ import {
   saveCustomization,
 } from "../api";
 import { formatNPR } from "../currency";
+import { catalogDefaultPartColors, mergePartColorDefaults } from "../catalogColorDefaults";
+import { normalizeHexColor } from "../colorUtils";
+import { customizationUnitPrice, fabricHasNonCottonMarkup } from "../pricing";
 import { getProductImageSrc } from "../productImages";
 import ProductStarsLine from "../components/ProductStarsLine";
 import { useNotify } from "../contexts/NotifyContext";
@@ -34,6 +37,14 @@ const FABRICS = [
 ];
 
 const SIZES = ["S", "M", "L", "XL", "CUSTOM"];
+
+const PART_COLOR_DEFAULTS = {
+  body: "#2d2d2d",
+  back: "#2d2d2d",
+  sleeves: "#2d2d2d",
+  patternPrimary: "#111111",
+  patternSecondary: "#ffffff",
+};
 
 export default function CustomizePage() {
   const toast = useNotify();
@@ -239,6 +250,40 @@ export default function CustomizePage() {
     () => products.find((p) => String(p.id) === String(productId)),
     [products, productId]
   );
+
+  const productColorDefaultsKey = useMemo(() => {
+    if (!selectedProduct) return "";
+    return [
+      selectedProduct.id,
+      selectedProduct.slug,
+      selectedProduct.product_type,
+      JSON.stringify(selectedProduct.default_part_colors ?? null),
+    ].join("|");
+  }, [selectedProduct]);
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const slug = selectedProduct.slug || "";
+    const ptype = selectedProduct.product_type || selectedCategory || "";
+    const inferred = catalogDefaultPartColors(slug, ptype);
+    const merged = mergePartColorDefaults(inferred, selectedProduct.default_part_colors);
+    const fb = PART_COLOR_DEFAULTS;
+    const body = normalizeHexColor(merged.body || merged.front) ?? fb.body;
+    const back = normalizeHexColor(merged.back) ?? body;
+    const sleeves = normalizeHexColor(merged.sleeves || merged.side) ?? body;
+    const collar = normalizeHexColor(merged.collar) ?? body;
+    setBodyColor(body);
+    setBackColor(back);
+    setSleevesColor(sleeves);
+    setCollarColor(collar);
+    setPatternPrimaryColor(normalizeHexColor(merged.pattern_primary) ?? fb.patternPrimary);
+    setPatternSecondaryColor(normalizeHexColor(merged.pattern_secondary) ?? fb.patternSecondary);
+  }, [productColorDefaultsKey, selectedCategory]);
+
+  const orderUnitPrice = useMemo(() => {
+    if (!selectedProduct) return null;
+    return customizationUnitPrice(selectedProduct.base_price, fabric);
+  }, [selectedProduct, fabric]);
 
   const activeProductType = selectedProduct?.product_type || selectedCategory;
   const isPant = activeProductType === "pant";
@@ -500,58 +545,65 @@ export default function CustomizePage() {
           <span style={s.stepBadge}>2</span>
           <h2 style={s.stepTitle}>Product</h2>
         </div>
-        {!selectedCategory && (
-          <p style={s.stepMuted}>Choose a category above to see products.</p>
-        )}
-        {selectedCategory && productsInCategory.length === 0 && (
-          <p style={s.stepMuted}>No products in this category yet.</p>
-        )}
-        {selectedCategory && productsInCategory.length > 0 && (
-          <div style={s.productGrid}>
-            {productsInCategory.map((p) => {
-              const selected = String(productId) === String(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handleSelectProduct(p.id)}
-                  style={{
-                    ...s.productCard,
-                    ...(selected ? s.productCardSelected : {}),
-                  }}
-                  aria-pressed={selected}
-                >
-                  <div style={s.productThumbWrap}>
-                    <img
-                      src={getProductImageSrc(p)}
-                      alt=""
-                      style={s.productThumb}
-                    />
-                  </div>
-                  <div style={s.productCardBody}>
-                    <span style={s.productName}>{p.name}</span>
-                    <ProductStarsLine average={p.rating_average} count={p.rating_count} />
-                    <span style={s.productPrice}>{formatNPR(p.base_price)}</span>
-                  </div>
-                  {selected && <span style={s.selectedTag}>Selected</span>}
-                </button>
-              );
-            })}
+        <div
+          style={{
+            ...s.productCustomizeRow,
+            flexDirection: selectedCategory ? "row" : "column",
+          }}
+        >
+          <div style={s.productBrowseCol}>
+            {!selectedCategory && (
+              <p style={s.stepMuted}>Choose a category above to see products.</p>
+            )}
+            {selectedCategory && productsInCategory.length === 0 && (
+              <p style={s.stepMuted}>No products in this category yet.</p>
+            )}
+            {selectedCategory && productsInCategory.length > 0 && (
+              <div style={s.productGrid}>
+                {productsInCategory.map((p) => {
+                  const selected = String(productId) === String(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => handleSelectProduct(p.id)}
+                      style={{
+                        ...s.productCard,
+                        ...(selected ? s.productCardSelected : {}),
+                      }}
+                      aria-pressed={selected}
+                    >
+                      <div style={s.productThumbWrap}>
+                        <img
+                          src={getProductImageSrc(p)}
+                          alt=""
+                          style={s.productThumb}
+                        />
+                      </div>
+                      <div style={s.productCardBody}>
+                        <span style={s.productName}>{p.name}</span>
+                        <ProductStarsLine average={p.rating_average} count={p.rating_count} />
+                        <span style={s.productPrice}>{formatNPR(p.base_price)}</span>
+                      </div>
+                      {selected && <span style={s.selectedTag}>Selected</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {selectedCategory && productId && selectedProduct && orderUnitPrice != null && (
+              <p style={s.selectionSummary}>
+                Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
+                {formatNPR(orderUnitPrice)}
+                {fabricHasNonCottonMarkup(fabric)
+                  ? " (base " + formatNPR(selectedProduct.base_price) + " + 25% fabric)"
+                  : ""}
+              </p>
+            )}
           </div>
-        )}
-        {selectedCategory && productId && selectedProduct && (
-          <>
-            <p style={s.selectionSummary}>
-              Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
-              {formatNPR(selectedProduct.base_price)}
-            </p>
-          </>
-        )}
-      </section>
 
-
-
-      <div style={s.customizationWrap}>
+          <div style={{ ...s.customizeFormCol, ...(!selectedCategory ? s.customizeFormColStack : {}) }}>
+            <div style={s.customizationWrap}>
       <form onSubmit={handleSaveDesign} style={s.form}>
 
         <label style={s.label}>
@@ -568,6 +620,11 @@ export default function CustomizePage() {
             ))}
           </select>
         </label>
+        {fabricHasNonCottonMarkup(fabric) ? (
+          <p style={s.fabricMarkupHint}>
+            Non-cotton fabric adds a 25% upgrade fee to the garment price at payment.
+          </p>
+        ) : null}
 
         <fieldset style={s.fieldset}>
           <legend style={s.legend}>Color segments</legend>
@@ -1038,16 +1095,8 @@ export default function CustomizePage() {
       {isFreeUser ? (
         <button type="button" onClick={notifySubscriptionRequired} style={s.customizationOverlay} aria-label="Customization locked for free users" />
       ) : null}
-      </div>
-
       <section style={s.orderSection}>
-        <h2 style={s.orderTitle}>Place order</h2>
-        <p style={s.sub}>
-          After saving, submit shipping details. Guests must use the same email as
-          checkout for tracking.
-        </p>
         <form onSubmit={handleAddToCartFlow} style={s.form}>
-          <hr style={{ margin: "24px 0", border: "0", borderTop: "1px solid #ddd" }} />
           <h2 style={s.stepTitle}>Add to Cart</h2>
           <p style={s.stepHint}>
             Satisfied with your design? Save it first, then add to your shopping cart.
@@ -1079,6 +1128,10 @@ export default function CustomizePage() {
           </button>
         </form>
       </section>
+            </div>
+          </div>
+        </div>
+      </section>
       {showSubscribeToast ? (
         <div style={s.toast}>
           <span>Subscribe for your own customization</span>
@@ -1097,7 +1150,7 @@ export default function CustomizePage() {
 }
 
 const s = {
-  wrap: { padding: "40px", maxWidth: "720px", margin: "0 auto", paddingBottom: "80px" },
+  wrap: { padding: "40px 24px", maxWidth: "1120px", margin: "0 auto", paddingBottom: "80px" },
   centered: { padding: "48px 24px", textAlign: "center" },
   header: { marginBottom: "28px" },
   title: { fontSize: "28px", fontWeight: "800", color: "#1a1a2e" },
@@ -1235,6 +1288,27 @@ const s = {
     fontSize: "14px",
     color: "#374151",
   },
+  productCustomizeRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "28px",
+    flexWrap: "wrap",
+    marginTop: "4px",
+  },
+  productBrowseCol: {
+    flex: "1 1 340px",
+    minWidth: "min(100%, 280px)",
+    maxWidth: "640px",
+  },
+  customizeFormCol: {
+    flex: "1 1 300px",
+    minWidth: "min(100%, 260px)",
+    maxWidth: "440px",
+  },
+  customizeFormColStack: {
+    maxWidth: "100%",
+    width: "100%",
+  },
   customizationWrap: { position: "relative" },
   customizationOverlay: {
     position: "absolute",
@@ -1308,12 +1382,17 @@ const s = {
     cursor: "pointer",
   },
   msg: { marginTop: "8px", color: "#374151", fontSize: "14px" },
-  orderSection: {
-    marginTop: "48px",
-    paddingTop: "32px",
-    borderTop: "1px solid #eee",
+  fabricMarkupHint: {
+    margin: "-4px 0 12px 0",
+    fontSize: "13px",
+    color: "#92400e",
+    lineHeight: 1.45,
   },
-  orderTitle: { fontSize: "20px", fontWeight: "800", marginBottom: "8px" },
+  orderSection: {
+    marginTop: "24px",
+    paddingTop: "24px",
+    borderTop: "1px solid #e8e8ec",
+  },
   toast: {
     position: "fixed",
     right: 18,

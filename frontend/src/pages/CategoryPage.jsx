@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchProducts,
   addToCart,
@@ -7,7 +7,6 @@ import {
   fetchWishlist,
   removeFromWishlist,
   getStoredToken,
-  placeOrder,
 } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc } from "../productImages";
@@ -19,6 +18,7 @@ const CATEGORY_SELECTIONS_KEY = "categorySelections";
 
 export default function CategoryPage() {
   const toast = useNotify();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -171,29 +171,13 @@ export default function CategoryPage() {
     }
   }
 
-  async function handleBuyNow(p, e) {
+  function handleBuyNow(p, e) {
     e.preventDefault();
     if (!getStoredToken()) {
       toast.warning("Sign in required", "Please sign in to place an order.");
       return;
     }
-    const shippingAddress = window.prompt("Enter shipping address:");
-    if (!shippingAddress || !shippingAddress.trim()) return;
-
-    const payload = {
-      product: p.id,
-      quantity: 1,
-      shipping_address: shippingAddress.trim(),
-    };
-    try {
-      await placeOrder(payload);
-      toast.success(
-        "Order placed",
-        `${p.name} — Track status anytime from Track Order in the menu.`
-      );
-    } catch (err) {
-      toast.error("Order failed", err.message || "We could not place your order. Please try again.");
-    }
+    navigate(`/checkout/buy?product=${encodeURIComponent(p.id)}`);
   }
 
   if (loading) {

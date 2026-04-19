@@ -26,7 +26,7 @@ function countStatusFromRecent(recentOrders) {
   for (const o of recentOrders || []) {
     const st = String(o.status || "").toLowerCase();
     if (st === "pending") acc.pending += 1;
-    else if (st === "confirmed") acc.confirmed += 1;
+    else if (st === "confirmed" || st === "quality_check" || st === "packed") acc.confirmed += 1;
     else if (st === "shipped") acc.shipped += 1;
     else if (st === "cancelled") acc.cancelled += 1;
   }
@@ -35,7 +35,10 @@ function countStatusFromRecent(recentOrders) {
 
 function buildDonutSlices(counts) {
   const pending = Number(counts?.pending) || 0;
-  const confirmedDb = Number(counts?.confirmed) || 0;
+  const confirmedDb =
+    (Number(counts?.confirmed) || 0) +
+    (Number(counts?.quality_check) || 0) +
+    (Number(counts?.packed) || 0);
   const shipped = Number(counts?.shipped) || 0;
   const cancelled = Number(counts?.cancelled) || 0;
   const returned = Number(counts?.returned) || 0;
@@ -175,7 +178,8 @@ export default function AdminDashboardPage() {
         <div style={styles.donutHeader}>
           <h2 style={styles.panelTitle}>Orders by status</h2>
           <p style={styles.donutHint}>
-            Confirmed includes shipped orders. Returned is reserved for future returns tracking.
+            Confirmed slice includes confirmed, quality check, packed, and shipped orders. Returned is reserved for
+            future returns tracking.
           </p>
         </div>
         <div style={styles.donutBody}>
