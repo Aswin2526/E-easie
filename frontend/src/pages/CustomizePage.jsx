@@ -16,6 +16,8 @@ import {
   nonDefaultPartColorsMarkup,
 } from "../pricing";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
+import { getProductStockQty, isProductOutOfStock } from "../productStock";
+import { getTrendingShowcase } from "../data/trendingShowcases";
 import ProductStarsLine from "../components/ProductStarsLine";
 import { useNotify } from "../contexts/NotifyContext";
 
@@ -56,6 +58,7 @@ export default function CustomizePage() {
   const primaryFromUrl = searchParams.get("primary");
   const secondaryFromUrl = searchParams.get("secondary");
   const categoryFromUrl = searchParams.get("category");
+  const showcaseFromUrl = searchParams.get("showcase");
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +66,7 @@ export default function CustomizePage() {
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [productId, setProductId] = useState(primaryFromUrl || productFromUrl || "");
+  const [userPickedProduct, setUserPickedProduct] = useState(Boolean(primaryFromUrl || productFromUrl));
   const [secondaryProductId, setSecondaryProductId] = useState(secondaryFromUrl || "");
   const [fabric, setFabric] = useState("cotton");
   const [bodyColor, setBodyColor] = useState("#2d2d2d");
@@ -107,6 +111,10 @@ export default function CustomizePage() {
   const [ordering, setOrdering] = useState(false);
 
   const isLoggedIn = Boolean(getStoredToken());
+  const relatedShowcase = useMemo(
+    () => getTrendingShowcase(showcaseFromUrl),
+    [showcaseFromUrl]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -135,12 +143,22 @@ export default function CustomizePage() {
       if (p) {
         setSelectedCategory(categoryFromUrl || p.product_type);
         setProductId(String(p.id));
+        setUserPickedProduct(!relatedShowcase);
+      }
+    } else if (relatedShowcase?.catalogSlug) {
+      const p = products.find((x) => x.slug === relatedShowcase.catalogSlug);
+      if (p) {
+        setSelectedCategory(categoryFromUrl || p.product_type);
+        setProductId(String(p.id));
+        setUserPickedProduct(false);
+      } else if (categoryFromUrl) {
+        setSelectedCategory(categoryFromUrl);
       }
     } else if (categoryFromUrl) {
       setSelectedCategory(categoryFromUrl);
     }
     setSecondaryProductId(secondaryFromUrl || "");
-  }, [products, productFromUrl, primaryFromUrl, secondaryFromUrl, categoryFromUrl]);
+  }, [products, productFromUrl, primaryFromUrl, secondaryFromUrl, categoryFromUrl, relatedShowcase]);
 
   const countByType = useMemo(() => {
     const m = {};
@@ -175,6 +193,7 @@ export default function CustomizePage() {
   function handleSelectCategory(type) {
     setSelectedCategory(type);
     setProductId("");
+    setUserPickedProduct(false);
     setSecondaryProductId("");
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -189,6 +208,7 @@ export default function CustomizePage() {
   function handleSelectProduct(id) {
     const sid = String(id);
     setProductId(sid);
+    setUserPickedProduct(true);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set("product", sid);
@@ -203,6 +223,21 @@ export default function CustomizePage() {
     () => products.find((p) => String(p.id) === String(productId)),
     [products, productId]
   );
+  const maxOrderQtyForCart = useMemo(() => {
+    const q = getProductStockQty(selectedProduct);
+    if (q === null) return 99;
+    if (q <= 0) return 1;
+    return Math.min(99, q);
+  }, [selectedProduct]);
+
+  useEffect(() => {
+    setOrderQty((prev) => Math.min(prev, maxOrderQtyForCart));
+  }, [maxOrderQtyForCart]);
+
+  const relatedCatalogProduct = useMemo(() => {
+    if (!relatedShowcase?.catalogSlug) return null;
+    return products.find((p) => p.slug === relatedShowcase.catalogSlug) || null;
+  }, [products, relatedShowcase]);
 
   const productColorDefaultsKey = useMemo(() => {
     if (!selectedProduct) return "";
@@ -490,7 +525,6 @@ export default function CustomizePage() {
           catalog. Changing fabric adds <strong>25%</strong> vs that original; changing colors adds{" "}
           <strong>20%</strong> (shown in the price line). Or use <strong>Buy now</strong> for checkout with eSewa.
         </p>
-        
       </header>
 
       <section style={s.pickSection} aria-label="Choose category and product">
@@ -539,6 +573,32 @@ export default function CustomizePage() {
               ...(selectedCategory ? s.productBrowseColScrollable : {}),
             }}
           >
+            {relatedShowcase && relatedCatalogProduct ? (
+              <div style={s.relatedPanel}>
+                <p style={s.relatedLabel}>Related item from trending style</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSelectCategory(relatedCatalogProduct.product_type);
+                    handleSelectProduct(relatedCatalogProduct.id);
+                  }}
+                  style={s.relatedCardBtn}
+                >
+                  <div style={s.relatedThumbWrap}>
+                    <img
+                      src={relatedShowcase.img}
+                      alt={relatedShowcase.alt || relatedShowcase.title}
+                      style={s.relatedThumbImg}
+                    />
+                  </div>
+                  <div style={s.relatedBody}>
+                    <span style={s.relatedName}>{relatedCatalogProduct.name}</span>
+                    <span style={s.relatedMeta}>{formatNPR(relatedCatalogProduct.base_price)}</span>
+                  </div>
+                  <span style={s.relatedAction}>Use this base product</span>
+                </button>
+              </div>
+            ) : null}
             {!selectedCategory && (
               <p style={s.stepMuted}>Choose a category above to see products.</p>
             )}
@@ -548,7 +608,7 @@ export default function CustomizePage() {
             {selectedCategory && productsInCategory.length > 0 && (
               <div style={s.productGrid}>
                 {productsInCategory.map((p) => {
-                  const selected = String(productId) === String(p.id);
+                  const selected = userPickedProduct && String(productId) === String(p.id);
                   return (
                     <button
                       key={p.id}
@@ -590,6 +650,10 @@ export default function CustomizePage() {
                     type="button"
                     style={s.checkoutShortcutBtn}
                     onClick={() => {
+                      if (selectedProduct && isProductOutOfStock(selectedProduct)) {
+                        toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+                        return;
+                      }
                       if (!getStoredToken()) {
                         toast.warning("Sign in required", "Please sign in to place an order.");
                         return;
@@ -1130,7 +1194,8 @@ export default function CustomizePage() {
               <button
                 type="button"
                 style={s.orderQtyBtn}
-                onClick={() => setOrderQty((q) => Math.min(99, q + 1))}
+                onClick={() => setOrderQty((q) => Math.min(maxOrderQtyForCart, q + 1))}
+                disabled={orderQty >= maxOrderQtyForCart}
                 aria-label="Increase quantity"
               >
                 +
@@ -1328,6 +1393,70 @@ const s = {
     minWidth: "min(100%, 280px)",
     maxWidth: "640px",
     minHeight: 0,
+  },
+  relatedPanel: {
+    marginBottom: "14px",
+    padding: "12px",
+    borderRadius: "10px",
+    border: "1px solid #dbe4ff",
+    background: "#f8faff",
+  },
+  relatedLabel: {
+    margin: "0 0 8px 0",
+    fontSize: "12px",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    color: "#334155",
+  },
+  relatedCardBtn: {
+    width: "100%",
+    display: "grid",
+    gridTemplateColumns: "72px 1fr auto",
+    gap: "10px",
+    alignItems: "center",
+    border: "1px solid #c7d2fe",
+    borderRadius: "8px",
+    background: "#fff",
+    padding: "8px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  relatedThumbWrap: {
+    width: "72px",
+    height: "72px",
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#e2e8f0",
+  },
+  relatedThumbImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+  relatedBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+    minWidth: 0,
+  },
+  relatedName: {
+    fontSize: "14px",
+    fontWeight: "700",
+    color: "#0f172a",
+    lineHeight: 1.3,
+  },
+  relatedMeta: {
+    fontSize: "12px",
+    color: "#475569",
+    lineHeight: 1.35,
+  },
+  relatedAction: {
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "#1d4ed8",
+    whiteSpace: "nowrap",
   },
   /** When a category is selected (split layout), only this column scrolls; form stays sticky. */
   productBrowseColScrollable: {

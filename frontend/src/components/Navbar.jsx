@@ -160,10 +160,10 @@ export default function Navbar() {
         ) : !authRoute && !token ? (
           <>
             <Link to="/login" style={styles.authLink}>
-              👤 Sign In
+              Login
             </Link>
             <Link to="/register" style={styles.authLink}>
-              Register
+              Registration
             </Link>
           </>
         ) : null}

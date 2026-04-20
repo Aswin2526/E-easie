@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
+import { isProductOutOfStock } from "../productStock";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
 import { useNotify } from "../contexts/NotifyContext";
@@ -173,6 +174,10 @@ export default function CategoryPage() {
 
   function handleBuyNow(p, e) {
     e.preventDefault();
+    if (isProductOutOfStock(p)) {
+      toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+      return;
+    }
     if (!getStoredToken()) {
       toast.warning("Sign in required", "Please sign in to place an order.");
       return;
@@ -223,7 +228,8 @@ export default function CategoryPage() {
         <section key={typeName} style={page.section}>
           <h2 style={page.typeHeading}>{typeName}</h2>
           <div style={page.grid}>
-            {items.map((p) => (
+            {items.map((p) => {
+              return (
               <article key={p.id} style={page.card}>
                 <div style={page.imgWrap}>
                   <button
@@ -262,17 +268,28 @@ export default function CategoryPage() {
                       Customize
                     </Link>
                     <div style={page.cartBuyRow}>
-                      <button style={page.addToCartBtn} onClick={(e) => handleAddToCart(p, e)} title="Add to Cart">
+                      <button
+                        style={page.addToCartBtn}
+                        onClick={(e) => handleAddToCart(p, e)}
+                        title="Add to Cart"
+                        type="button"
+                      >
                         🛒 Add to cart
                       </button>
-                      <button style={page.buyNowBtn} onClick={(e) => handleBuyNow(p, e)} title="Buy Now">
+                      <button
+                        style={page.buyNowBtn}
+                        onClick={(e) => handleBuyNow(p, e)}
+                        title="Buy Now"
+                        type="button"
+                      >
                         Buy now
                       </button>
                     </div>
                   </div>
                 </div>
               </article>
-            ))}
+            );
+            })}
           </div>
         </section>
       ))}

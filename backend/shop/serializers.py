@@ -24,6 +24,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_type_display",
             "description",
             "base_price",
+            "quantity",
             "default_part_colors",
             "default_fabric",
             "image",
@@ -199,6 +200,15 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
         if not product.is_active:
             raise serializers.ValidationError({"product": "This product is not available for ordering."})
+
+        try:
+            qty = int(attrs.get("quantity") or 1)
+        except (TypeError, ValueError):
+            raise serializers.ValidationError({"quantity": "Invalid quantity."})
+        if qty < 1:
+            qty = 1
+        if product.quantity < qty:
+            raise serializers.ValidationError({"detail": "This product is out of stock."})
 
         request = self.context.get("request")
         guest_email = (attrs.get("guest_email") or "").strip()

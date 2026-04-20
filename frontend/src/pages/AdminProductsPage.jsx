@@ -3,6 +3,7 @@ import { useOutletContext } from "react-router-dom";
 import { adminCreateProduct, adminPatchProductQuantity, fetchAdminProductsCatalog } from "../api";
 import { formatNPR } from "../currency";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
+import { AdminPaginationBar, useAdminPagination } from "../admin/AdminPagination";
 import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
 
 export default function AdminProductsPage() {
@@ -51,6 +52,12 @@ export default function AdminProductsPage() {
       return String(p.product_type || "").trim().toLowerCase() === categoryFilter;
     });
   }, [products, searchQuery, categoryFilter]);
+
+  const paginationResetKey = `${searchQuery}|${categoryFilter}`;
+  const { page, setPage, pageItems, totalPages, totalCount } = useAdminPagination(
+    filtered,
+    paginationResetKey
+  );
 
   const categoryOptions = useMemo(() => {
     const base = ["tshirt", "pant", "hoodie"];
@@ -213,7 +220,7 @@ export default function AdminProductsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
+            {pageItems.map((p) => (
               <tr key={p.id}>
                 <td style={s.td}>{p.product_type}</td>
                 <td style={s.td}>
@@ -255,6 +262,13 @@ export default function AdminProductsPage() {
             ))}
           </tbody>
         </table>
+        <AdminPaginationBar
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+        />
         {qtyError ? <p style={{ ...s.error, padding: "8px 16px 0" }}>{qtyError}</p> : null}
         {filtered.length === 0 ? <p style={{ ...s.muted, padding: "16px" }}>No products match your search/filter.</p> : null}
       </section>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { loginUser, persistAuth } from "../api";
 import {
   AuthField,
@@ -15,12 +15,14 @@ import {
 } from "../auth/AuthUi";
 
 export default function LoginPage() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const inputProps = authInputProps();
+  const registered = searchParams.get("registered") === "1";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,10 +37,16 @@ export default function LoginPage() {
       persistAuth({ token: res?.token, role: res?.role, name: res?.user?.name });
       navigate(res?.role === "admin" ? "/admin/dashboard" : "/");
     } catch (err) {
-      setError(
+      const rawMessage =
         typeof err.data === "object" && (err.data?.detail || err.data?.error)
           ? String(err.data.detail || err.data.error)
-          : err.message || "Login failed."
+          : err.message || "Login failed.";
+      const normalizedMessage =
+        rawMessage.trim().toLowerCase() === "invalid credentials"
+          ? "Invalid password"
+          : rawMessage;
+      setError(
+        normalizedMessage
       );
     } finally {
       setLoading(false);
@@ -72,6 +80,11 @@ export default function LoginPage() {
         </AuthField>
 
         {error && <p style={authErrorStyle()}>{error}</p>}
+        {registered && !error ? (
+          <p style={{ margin: "0 0 10px", color: "#166534", fontSize: "13px", fontWeight: 600 }}>
+            Registration successful. Please log in to continue.
+          </p>
+        ) : null}
 
         <button type="submit" style={authButtonStyle(loading)} disabled={loading}>
           {loading ? "Please wait…" : "Login"}

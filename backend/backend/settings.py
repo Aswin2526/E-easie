@@ -96,31 +96,21 @@ WSGI_APPLICATION = "backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# MySQL: set USE_MYSQL=1 and MYSQL_* (see project docs). Otherwise SQLite for local dev.
-USE_MYSQL = os.environ.get("USE_MYSQL", "").lower() in ("1", "true", "yes")
-
-if USE_MYSQL:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("MYSQL_DATABASE", "eeasie"),
-            "USER": os.environ.get("MYSQL_USER", "root"),
-            "PASSWORD": os.environ.get("MYSQL_PASSWORD", ""),
-            "HOST": os.environ.get("MYSQL_HOST", "127.0.0.1"),
-            "PORT": os.environ.get("MYSQL_PORT", "3306"),
-            "OPTIONS": {
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-                "charset": "utf8mb4",
-            },
-        }
+# MySQL database configuration.
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.environ.get("MYSQL_DATABASE", "eeasie"),
+        "USER": os.environ.get("MYSQL_USER", "root"),
+        "PASSWORD": os.environ.get("MYSQL_PASSWORD", ""),
+        "HOST": os.environ.get("MYSQL_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("MYSQL_PORT", "3306"),
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
+        },
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 
 # Password validation

@@ -11,6 +11,7 @@ import {
 import { formatNPR } from "../currency";
 import { getTrendingShowcase } from "../data/trendingShowcases";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
+import { isProductOutOfStock } from "../productStock";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ProductRatingsPanel from "../components/ProductRatingsPanel";
 import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
@@ -82,6 +83,9 @@ export default function ProductDetailPage() {
       product: String(p.id),
       primary: String(p.id),
     });
+    if (showcase?.showcaseSlug) {
+      q.set("showcase", showcase.showcaseSlug);
+    }
     return `/customize?${q.toString()}`;
   }
 
@@ -121,6 +125,10 @@ export default function ProductDetailPage() {
   }
 
   function handleBuyNow(p) {
+    if (isProductOutOfStock(p)) {
+      toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+      return;
+    }
     if (!getStoredToken()) {
       toast.warning("Sign in required", "Please sign in to place an order.");
       return;
@@ -236,7 +244,10 @@ export default function ProductDetailPage() {
             <div style={page.row2}>
               <button
                 type="button"
-                style={{ ...page.btnCart, ...(ctaDisabled ? page.btnDisabled : {}) }}
+                style={{
+                  ...page.btnCart,
+                  ...(ctaDisabled ? page.btnDisabled : {}),
+                }}
                 disabled={ctaDisabled}
                 onClick={() => ctaProduct && handleAddToCart(ctaProduct)}
               >
@@ -244,7 +255,10 @@ export default function ProductDetailPage() {
               </button>
               <button
                 type="button"
-                style={{ ...page.btnBuy, ...(ctaDisabled ? page.btnDisabled : {}) }}
+                style={{
+                  ...page.btnBuy,
+                  ...(ctaDisabled ? page.btnDisabled : {}),
+                }}
                 disabled={ctaDisabled}
                 onClick={() => ctaProduct && handleBuyNow(ctaProduct)}
               >

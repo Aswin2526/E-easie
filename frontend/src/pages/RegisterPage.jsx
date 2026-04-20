@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { persistAuth, registerUser } from "../api";
+import { registerUser } from "../api";
 import {
   AuthField,
   AuthGlobalStyles,
@@ -49,14 +49,13 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      const res = await registerUser({
+      await registerUser({
         name,
         email,
         password,
         password2,
       });
-      persistAuth({ token: res?.token, role: res?.role, name: res?.user?.name });
-      navigate(res?.role === "admin" ? "/admin/dashboard" : "/");
+      navigate("/login?registered=1");
     } catch (err) {
       setError(parseApiError(err));
     } finally {

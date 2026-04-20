@@ -11,6 +11,7 @@ from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
@@ -997,16 +998,42 @@ class CartItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         cart, _ = Cart.objects.get_or_create(user=self.request.user)
-        # Check if identical item already exists to increment quantity
-        product = serializer.validated_data.get('product')
-        customization = serializer.validated_data.get('customization')
-        existing_item = CartItem.objects.filter(cart=cart, product=product, customization=customization).first()
-        
+        product = serializer.validated_data.get("product")
+        customization = serializer.validated_data.get("customization")
+        add_qty = int(serializer.validated_data.get("quantity", 1) or 1)
+        if add_qty < 1:
+            raise ValidationError({"detail": "Invalid quantity."})
+        stock = int(product.quantity or 0)
+        # When warehouse qty is 0, still allow one cart line so shoppers can save the item;
+        # checkout remains blocked until stock returns (OrderCreateSerializer).
+        max_q = stock if stock > 0 else 1
+
+        existing_item = CartItem.objects.filter(
+            cart=cart, product=product, customization=customization
+        ).first()
+
         if existing_item:
-            existing_item.quantity += serializer.validated_data.get('quantity', 1)
+            new_total = existing_item.quantity + add_qty
+            if new_total > max_q:
+                raise ValidationError({"detail": "Not enough stock for this quantity."})
+            existing_item.quantity = new_total
             existing_item.save()
         else:
+            if add_qty > max_q:
+                raise ValidationError({"detail": "Not enough stock for this quantity."})
             serializer.save(cart=cart)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        product = instance.product
+        new_qty = int(serializer.validated_data.get("quantity", instance.quantity) or 1)
+        if new_qty < 1:
+            raise ValidationError({"detail": "Invalid quantity."})
+        stock = int(product.quantity or 0)
+        max_q = stock if stock > 0 else 1
+        if new_qty > max_q:
+            raise ValidationError({"detail": "Not enough stock for this quantity."})
+        serializer.save()
 
 
 @api_view(["GET"])

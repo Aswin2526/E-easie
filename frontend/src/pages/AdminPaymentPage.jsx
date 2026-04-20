@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { adminPatchOrder, fetchAdminOrders } from "../api";
 import { formatNPR } from "../currency";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
+import { AdminPaginationBar, useAdminPagination } from "../admin/AdminPagination";
 import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
 
 const PAYMENT_FILTERS = [
@@ -108,6 +109,12 @@ export default function AdminPaymentPage() {
     }
     return { paid, outstanding };
   }, [filtered]);
+
+  const paginationResetKey = `${searchText}|${paymentFilter}`;
+  const { page, setPage, pageItems, totalPages, totalCount } = useAdminPagination(
+    filtered,
+    paginationResetKey
+  );
 
   async function patchOrderStatus(orderId, nextStatus, cancelDescription = "") {
     setUpdatingById((prev) => ({ ...prev, [orderId]: true }));
@@ -240,7 +247,7 @@ export default function AdminPaymentPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((o) => (
+            {pageItems.map((o) => (
               <tr key={o.id}>
                 <td style={s.td}>#{o.id}</td>
                 <td style={s.td}>{o.customer}</td>
@@ -296,6 +303,13 @@ export default function AdminPaymentPage() {
             ))}
           </tbody>
         </table>
+        <AdminPaginationBar
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+        />
         {filtered.length === 0 ? (
           <p style={{ ...s.muted, padding: "16px" }}>No orders match your search or payment filter.</p>
         ) : null}

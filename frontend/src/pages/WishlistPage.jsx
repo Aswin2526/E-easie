@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { fetchWishlist, removeFromWishlist, addToCart, getStoredToken } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
+import { isProductOutOfStock } from "../productStock";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function WishlistPage() {
@@ -55,6 +56,10 @@ export default function WishlistPage() {
   }
 
   function handleBuyNow(product) {
+    if (isProductOutOfStock(product)) {
+      toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+      return;
+    }
     if (!getStoredToken()) {
       toast.warning("Sign in required", "Please sign in to place an order.");
       return;
@@ -84,10 +89,18 @@ export default function WishlistPage() {
                   <p style={s.price}>{formatNPR(p.base_price)}</p>
                   <div style={s.buttonGroup}>
                     <div style={s.cartBuyRow}>
-                      <button style={s.btnPrimary} onClick={() => handleAddToCart(p)}>
+                      <button
+                        type="button"
+                        style={s.btnPrimary}
+                        onClick={() => handleAddToCart(p)}
+                      >
                         Add to Cart
                       </button>
-                      <button type="button" style={s.btnBuyNow} onClick={() => handleBuyNow(p)}>
+                      <button
+                        type="button"
+                        style={s.btnBuyNow}
+                        onClick={() => handleBuyNow(p)}
+                      >
                         Buy now
                       </button>
                     </div>
@@ -161,5 +174,5 @@ const s = {
     fontWeight: "700",
   },
   btnSecondary: { background: "transparent", color: "#1a1a2e", border: "1px solid #1a1a2e", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", width: "100%" },
-  btnDanger: { background: "transparent", color: "#d9534f", border: "1px solid #d9534f", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", width: "100%" }
+  btnDanger: { background: "transparent", color: "#d9534f", border: "1px solid #d9534f", padding: "8px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px", width: "100%" },
 };

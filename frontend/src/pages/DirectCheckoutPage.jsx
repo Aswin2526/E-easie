@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { fetchProduct, checkoutBuyNowWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
+import { getProductStockQty, isProductOutOfStock } from "../productStock";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function DirectCheckoutPage() {
@@ -83,6 +84,15 @@ export default function DirectCheckoutPage() {
     return unit * quantity;
   }, [product, quantity]);
 
+  const stockQty = useMemo(() => (product ? getProductStockQty(product) : null), [product]);
+  const outOfStock = Boolean(product && isProductOutOfStock(product));
+  const maxOrderQty = stockQty === null ? 99 : Math.min(99, stockQty);
+
+  useEffect(() => {
+    if (!product || stockQty === null) return;
+    setQuantity((q) => Math.min(Math.max(1, q), Math.max(1, stockQty)));
+  }, [product, stockQty]);
+
   function combinedShippingForOrder() {
     const addr = shippingAddress.trim();
     const phone = phoneNumber.trim();
@@ -111,6 +121,14 @@ export default function DirectCheckoutPage() {
   async function handleEsewa(e) {
     e.preventDefault();
     if (!product) return;
+    if (outOfStock) {
+      toast.warning("Out of stock", "This product is not available right now.");
+      return;
+    }
+    if (stockQty !== null && quantity > stockQty) {
+      toast.warning("Quantity", `Only ${stockQty} in stock. Reduce quantity to continue.`);
+      return;
+    }
     if (!shippingAddress.trim() || !phoneNumber.trim()) {
       toast.warning("Shipping details", "Please enter your shipping address and phone number before paying with eSewa.");
       return;
@@ -166,6 +184,41 @@ export default function DirectCheckoutPage() {
     );
   }
 
+  if (outOfStock) {
+    return (
+      <div style={s.wrap}>
+        <nav style={s.breadcrumb}>
+          <Link to="/category">Shop</Link>
+          <span style={s.crumbSep}> / </span>
+          <span style={s.crumbCurrent}>Checkout</span>
+        </nav>
+        <h1 style={s.title}>Checkout</h1>
+        <p style={s.oosBanner}>Out of stock — this item cannot be purchased right now.</p>
+        <div style={s.container}>
+          <div style={s.summaryCard}>
+            <div style={s.thumbWrap}>
+              <img
+                src={getProductImageSrc(product)}
+                alt={product.name}
+                style={{ ...s.thumbImg, ...getProductImageStyle(product) }}
+              />
+            </div>
+            <div style={s.summaryBody}>
+              <h2 style={s.productName}>{product.name}</h2>
+              <p style={s.meta}>{product.product_type_display || product.product_type}</p>
+              <p style={s.priceLine}>{formatNPR(product.base_price)}</p>
+            </div>
+          </div>
+        </div>
+        <p style={{ marginTop: "20px" }}>
+          <Link to="/category" style={s.link}>
+            Back to shop
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={s.wrap}>
       <nav style={s.breadcrumb}>
@@ -174,7 +227,7 @@ export default function DirectCheckoutPage() {
         <span style={s.crumbCurrent}>Checkout</span>
       </nav>
       <h1 style={s.title}>Checkout</h1>
-      <p style={s.subtitle}>Review your item, enter your shipping details, then complete payment with eSewa.</p>
+      <p style={s.subtitle}>Enter your shipping address, phone number, then complete your payment with eSewa.</p>
 
       <div style={s.container}>
         <div style={s.summaryCard}>
@@ -209,8 +262,8 @@ export default function DirectCheckoutPage() {
                   <button
                     type="button"
                     style={s.qtyBtn}
-                    disabled={quantity >= 99}
-                    onClick={() => setQuantity((q) => Math.min(99, q + 1))}
+                    disabled={quantity >= maxOrderQty}
+                    onClick={() => setQuantity((q) => Math.min(maxOrderQty, q + 1))}
                     aria-label="Increase quantity"
                   >
                     +
@@ -297,6 +350,18 @@ const s = {
   link: { color: "#1a1a2e", fontWeight: 700 },
   title: { fontSize: "28px", fontWeight: "800", color: "#1a1a2e", margin: "0 0 8px 0" },
   subtitle: { color: "#64748b", margin: "0 0 28px 0", maxWidth: "560px", lineHeight: 1.5 },
+  oosBanner: {
+    padding: "14px 16px",
+    borderRadius: "10px",
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    color: "#991b1b",
+    fontWeight: 700,
+    fontSize: "15px",
+    marginBottom: "20px",
+    maxWidth: "560px",
+    lineHeight: 1.45,
+  },
   container: { display: "flex", gap: "28px", alignItems: "flex-start", flexWrap: "wrap" },
   summaryCard: {
     flex: "1 1 320px",

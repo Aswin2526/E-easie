@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { adminPatchUser, fetchAdminUsers } from "../api";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
+import { AdminPaginationBar, useAdminPagination } from "../admin/AdminPagination";
 import { apiErrorMessage, matchesSearch } from "../admin/adminUtils";
 
 function formatDateTime(value) {
@@ -9,6 +10,22 @@ function formatDateTime(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return d.toLocaleString();
+}
+
+/** Coerce API `is_active` to boolean so blocked users always show Inactive in the UI. */
+function normalizeIsActive(value) {
+  if (value === false || value === 0) return false;
+  if (value === true || value === 1) return true;
+  if (typeof value === "string") {
+    const s = value.trim().toLowerCase();
+    if (s === "false" || s === "0" || s === "no" || s === "off") return false;
+    if (s === "true" || s === "1" || s === "yes" || s === "on") return true;
+  }
+  return true;
+}
+
+function normalizeUserRow(u) {
+  return { ...u, is_active: normalizeIsActive(u?.is_active) };
 }
 
 export default function AdminUsersPage() {
@@ -21,7 +38,8 @@ export default function AdminUsersPage() {
 
   const refreshUsers = useCallback(async () => {
     const res = await fetchAdminUsers();
-    setUsers(res?.users || []);
+    const list = res?.users || [];
+    setUsers(list.map(normalizeUserRow));
   }, []);
 
   useEffect(() => {
@@ -44,6 +62,12 @@ export default function AdminUsersPage() {
     return users.filter((u) => matchesSearch(searchQuery, u.id, u.name, u.email));
   }, [users, searchQuery]);
 
+  const paginationResetKey = `${searchQuery}`;
+  const { page, setPage, pageItems, totalPages, totalCount } = useAdminPagination(
+    filtered,
+    paginationResetKey
+  );
+
   const myId = me?.id;
   const handleSetActive = async (u, isActive) => {
     if (userActionBusyId != null) return;
@@ -51,7 +75,13 @@ export default function AdminUsersPage() {
     setUserActionMessage(null);
     setUserActionBusyId(u.id);
     try {
-      await adminPatchUser(u.id, isActive);
+      const patchResult = await adminPatchUser(u.id, isActive);
+      const nextActive = normalizeIsActive(
+        patchResult?.is_active !== undefined ? patchResult.is_active : isActive
+      );
+      setUsers((prev) =>
+        prev.map((row) => (row.id === u.id ? { ...row, is_active: nextActive } : row))
+      );
       await refreshUsers();
       setUserActionMessage(
         isActive ? `Set ${u.name || u.email} to Active.` : `Set ${u.name || u.email} to Inactive.`,
@@ -102,21 +132,22 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((u) => {
+            {pageItems.map((u) => {
               const isSelf = myId != null && u.id === myId;
               const busy = userActionBusyId === u.id;
-              const canBlock = !isSelf && !u.is_superuser;
+              const canToggleBlock = !isSelf && !u.is_superuser;
+              const userIsActive = normalizeIsActive(u.is_active);
               return (
-                <tr key={u.id} style={u.is_active === false ? s.rowInactive : undefined}>
+                <tr key={u.id} style={userIsActive === false ? s.rowInactive : undefined}>
                   <td style={s.td}>{u.name}</td>
                   <td style={s.td}>{u.email || "-"}</td>
                   <td style={s.td}>
                     <select
                       style={{
                         ...statusSelect,
-                        color: u.is_active ? "#15803d" : "#b91c1c",
+                        color: userIsActive ? "#15803d" : "#b91c1c",
                       }}
-                      value={u.is_active ? "active" : "inactive"}
+                      value={userIsActive ? "active" : "inactive"}
                       disabled={busy || isSelf}
                       onChange={(e) => handleSetActive(u, e.target.value === "active")}
                       aria-label={`Status for ${u.name || u.email}`}
@@ -132,17 +163,28 @@ export default function AdminUsersPage() {
                   <td style={s.td}>{formatDateTime(u.date_joined)}</td>
                   <td style={s.tdActions}>
                     <div style={s.actionBtns}>
-                      {canBlock ? (
-                        <button
-                          type="button"
-                          style={blockBtn}
-                          disabled={busy}
-                          onClick={() => handleSetActive(u, false)}
-                        >
-                          {busy ? "…" : "Block"}
-                        </button>
+                      {canToggleBlock ? (
+                        userIsActive ? (
+                          <button
+                            type="button"
+                            style={blockBtn}
+                            disabled={busy}
+                            onClick={() => handleSetActive(u, false)}
+                          >
+                            {busy ? "…" : "Block"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            style={unblockBtn}
+                            disabled={busy}
+                            onClick={() => handleSetActive(u, true)}
+                          >
+                            {busy ? "…" : "Unblock"}
+                          </button>
+                        )
                       ) : null}
-                      {!canBlock && !isSelf ? <span style={s.actionMuted}>—</span> : null}
+                      {!canToggleBlock && !isSelf ? <span style={s.actionMuted}>—</span> : null}
                       {isSelf ? <span style={s.actionMuted}>You</span> : null}
                     </div>
                   </td>
@@ -151,6 +193,13 @@ export default function AdminUsersPage() {
             })}
           </tbody>
         </table>
+        <AdminPaginationBar
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+        />
         {filtered.length === 0 ? <p style={{ ...s.muted, padding: "16px" }}>No customers match your search.</p> : null}
       </section>
     </main>
@@ -181,4 +230,11 @@ const blockBtn = {
   color: "#fff",
   background: "#000",
   border: "1px solid #000",
+};
+
+const unblockBtn = {
+  ...s.btnWarn,
+  color: "#fff",
+  background: "#15803d",
+  border: "1px solid #166534",
 };

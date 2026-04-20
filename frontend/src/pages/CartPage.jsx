@@ -9,6 +9,7 @@ import {
   nonDefaultPartColorsMarkup,
 } from "../pricing";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
+import { getProductStockQty, isProductOutOfStock } from "../productStock";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function CartPage() {
@@ -59,8 +60,16 @@ export default function CartPage() {
     }
   }
 
+  function maxCartLineQty(item) {
+    const stock = getProductStockQty(item.product_detail);
+    if (stock === null) return 99;
+    if (stock <= 0) return 1;
+    return Math.min(99, stock);
+  }
+
   async function changeCartItemQuantity(item, delta) {
-    const next = Math.min(99, Math.max(1, item.quantity + delta));
+    const cap = maxCartLineQty(item);
+    const next = Math.min(cap, Math.max(1, item.quantity + delta));
     if (next === item.quantity) return;
     setQtyBusyId(item.id);
     try {
@@ -95,6 +104,24 @@ export default function CartPage() {
   async function handleEsewaCheckout(e) {
     e.preventDefault();
     if (!cart || !cart.items || cart.items.length === 0) return;
+    for (const item of cart.items) {
+      const p = item.product_detail;
+      if (isProductOutOfStock(p)) {
+        toast.warning(
+          "Out of stock",
+          `${p?.name || "An item"} cannot be purchased until it is restocked. Remove it from your cart or wait for new stock.`
+        );
+        return;
+      }
+      const sq = getProductStockQty(p);
+      if (sq !== null && item.quantity > sq) {
+        toast.warning(
+          "Not enough stock",
+          `Reduce the quantity of ${p?.name || "an item"} before checkout (only ${sq} available).`
+        );
+        return;
+      }
+    }
     if (!shippingAddress.trim()) {
       toast.warning("Shipping address", "Please enter your shipping address before paying with eSewa.");
       return;
@@ -152,6 +179,7 @@ export default function CartPage() {
           <div style={s.itemsList}>
             {items.map((item) => {
               const p = item.product_detail;
+              const lineMax = maxCartLineQty(item);
               const unit = cartLineUnit(item);
               const cust = item.customization_detail;
               const ref = cust ? effectiveCatalogPartColors(p, p.product_type) : {};
@@ -178,7 +206,7 @@ export default function CartPage() {
                         <button
                           type="button"
                           style={s.qtyBtn}
-                          disabled={qtyBusyId === item.id || item.quantity >= 99}
+                          disabled={qtyBusyId === item.id || item.quantity >= lineMax}
                           onClick={() => changeCartItemQuantity(item, 1)}
                           aria-label="Increase quantity"
                         >
