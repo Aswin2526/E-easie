@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { fetchCart, patchCartItem, removeCartItem, placeOrder, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
+import { fetchCart, patchCartItem, removeCartItem, checkoutCartWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
 import {
   customizationUnitPrice,
@@ -16,9 +16,9 @@ export default function CartPage() {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [checkingOut, setCheckingOut] = useState(false);
   const [esewaBusy, setEsewaBusy] = useState(false);
   const [shippingAddress, setShippingAddress] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
   const [qtyBusyId, setQtyBusyId] = useState(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,44 +85,11 @@ export default function CartPage() {
     }
   }
 
-  async function handleCheckout(e) {
-    e.preventDefault();
-    if (!cart || !cart.items || cart.items.length === 0) return;
-
-    if (!shippingAddress.trim()) {
-      toast.warning("Shipping address", "Please enter your full shipping address before placing the order.");
-      return;
-    }
-
-    setCheckingOut(true);
-    try {
-      let successCount = 0;
-      for (const item of cart.items) {
-        const payload = {
-          quantity: item.quantity,
-          shipping_address: shippingAddress.trim(),
-        };
-        if (item.customization) {
-          payload.customization = item.customization;
-        } else {
-          payload.product = item.product;
-        }
-        await placeOrder(payload);
-        await removeCartItem(item.id);
-        successCount++;
-      }
-      toast.success(
-        "Orders placed",
-        `${successCount} order${successCount === 1 ? "" : "s"} confirmed. Track progress from Track Order.`
-      );
-      window.dispatchEvent(new Event("cart-updated"));
-      navigate("/track-order");
-    } catch (err) {
-      toast.error("Checkout", err.message || "Checkout failed. Your cart is unchanged where possible.");
-      await loadCart();
-    } finally {
-      setCheckingOut(false);
-    }
+  function combinedShippingForCheckout() {
+    const addr = shippingAddress.trim();
+    const phone = contactNumber.trim();
+    if (!phone) return addr;
+    return `Phone: ${phone}\n\n${addr}`;
   }
 
   async function handleEsewaCheckout(e) {
@@ -132,9 +99,18 @@ export default function CartPage() {
       toast.warning("Shipping address", "Please enter your shipping address before paying with eSewa.");
       return;
     }
+    const phone = contactNumber.trim();
+    if (!phone) {
+      toast.warning("Contact number", "Please enter a contact phone number for delivery updates.");
+      return;
+    }
+    if (phone.replace(/\D/g, "").length < 8) {
+      toast.warning("Contact number", "Please enter a valid phone number (at least 8 digits).");
+      return;
+    }
     setEsewaBusy(true);
     try {
-      const res = await checkoutCartWithEsewa(shippingAddress.trim());
+      const res = await checkoutCartWithEsewa(combinedShippingForCheckout());
       window.dispatchEvent(new Event("cart-updated"));
       if (res?.epay_url && res?.fields) {
         submitEsewaPaymentForm(res.epay_url, res.fields);
@@ -243,30 +219,33 @@ export default function CartPage() {
               <span>Subtotal</span>
               <span>{formatNPR(total)}</span>
             </div>
-            <form onSubmit={handleCheckout} style={{ marginTop: 20 }}>
+            <div style={{ marginTop: 20 }}>
               <label style={s.label}>
                 Shipping Address
-                <textarea 
+                <textarea
                   required
-                  value={shippingAddress} 
-                  onChange={(e) => setShippingAddress(e.target.value)} 
-                  style={s.textarea} 
+                  value={shippingAddress}
+                  onChange={(e) => setShippingAddress(e.target.value)}
+                  style={s.textarea}
                   placeholder="Enter your full address"
                 />
               </label>
-              <button disabled={checkingOut || esewaBusy} style={s.checkoutBtn} type="submit">
-                {checkingOut ? "Processing..." : "Place order"}
-              </button>
-              <button
-                type="button"
-                disabled={checkingOut || esewaBusy}
-                style={s.esewaBtn}
-                onClick={handleEsewaCheckout}
-              >
+              <label style={{ ...s.label, marginTop: 16 }}>
+                Contact number
+                <input
+                  type="tel"
+                  required
+                  autoComplete="tel"
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                  style={s.textInput}
+                  placeholder="e.g. 98XXXXXXXX or +977-98XXXXXXXX"
+                />
+              </label>
+              <button type="button" disabled={esewaBusy} style={s.esewaBtn} onClick={handleEsewaCheckout}>
                 {esewaBusy ? "Starting eSewa…" : "Pay with eSewa"}
               </button>
-              <p style={s.payHint}>eSewa opens in a secure window. Test wallet: 9806800001 / Nepal@123 (token 123456).</p>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -338,7 +317,16 @@ const s = {
   summaryRowBold: { display: "flex", justifyContent: "space-between", marginBottom: "12px", fontWeight: "bold", fontSize: "18px", borderTop: "1px solid #ddd", paddingTop: "12px" },
   label: { display: "block", fontSize: "14px", fontWeight: "bold", marginBottom: "12px" },
   textarea: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ccc", minHeight: "80px", marginTop: "6px", boxSizing: "border-box", fontFamily: "inherit" },
-  checkoutBtn: { width: "100%", background: "#1a1a2e", color: "#fff", border: "none", padding: "14px", borderRadius: "6px", fontSize: "16px", fontWeight: "bold", cursor: "pointer", marginTop: "16px" },
+  textInput: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: "6px",
+    border: "1px solid #ccc",
+    marginTop: "6px",
+    boxSizing: "border-box",
+    fontFamily: "inherit",
+    fontSize: "15px",
+  },
   esewaBtn: {
     width: "100%",
     background: "#60bb46",
@@ -349,7 +337,6 @@ const s = {
     fontSize: "16px",
     fontWeight: "bold",
     cursor: "pointer",
-    marginTop: "12px",
+    marginTop: "16px",
   },
-  payHint: { fontSize: "12px", color: "#666", marginTop: "12px", lineHeight: 1.4, marginBottom: 0 },
 };

@@ -64,7 +64,15 @@ export default function HomePage() {
             <section id="trending" style={styles.trendingSection}>
                 <div style={styles.trendingHeader}>
                     <h2 style={styles.sectionTitle}>Trending Styles</h2>
-                    {!showAllTrending && (
+                    {showAllTrending ? (
+                        <button
+                            type="button"
+                            style={styles.viewAllLink}
+                            onClick={() => setShowAllTrending(false)}
+                        >
+                            Show less
+                        </button>
+                    ) : (
                         <button
                             type="button"
                             style={styles.viewAllLink}
