@@ -10,17 +10,69 @@ import {
 } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
-import { isProductOutOfStock } from "../productStock";
+import { BUY_NOW_OUT_OF_STOCK_TOAST, isProductOutOfStock } from "../productStock";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
+import { productSpecsSummaryLine } from "../components/ProductSpecsPanel";
 import { useNotify } from "../contexts/NotifyContext";
+import { CATALOG_CATEGORIES, CATALOG_CATEGORY_SLUGS } from "../catalogCategories";
 
 const CATEGORY_SELECTIONS_KEY = "categorySelections";
+
+/** NPR from API (number or decimal string). */
+function parseCatalogPrice(product) {
+  const raw = product?.base_price;
+  if (raw == null || raw === "") return NaN;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  const n = parseFloat(String(raw).trim().replace(/,/g, ""));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function matchesPriceBand(priceN, band) {
+  if (!Number.isFinite(priceN)) return false;
+  const b = String(band || "all").trim().toLowerCase();
+  if (!b || b === "all") return true;
+  if (b === "under-500" || b === "0-499") return priceN < 500;
+  if (b === "500-999") return priceN >= 500 && priceN < 1000;
+  if (b === "1000-plus" || b === "1000+" || b === "gte-1000" || b === "1000plus") return priceN >= 1000;
+  return true;
+}
+
+/** Map URL param to a controlled <select> value (supports older bookmarked links). */
+function priceParamToSelectValue(raw) {
+  const v = String(raw || "").trim().toLowerCase();
+  if (!v || v === "all") return "all";
+  if (v === "0-499" || v === "under-500") return "under-500";
+  if (v === "500-999") return "500-999";
+  if (v === "1000-plus" || v === "1000+" || v === "gte-1000" || v === "1000plus") return "1000-plus";
+  return "all";
+}
+
+function sortProductList(items, sortKey) {
+  const out = [...items];
+  switch (sortKey) {
+    case "price_asc":
+      out.sort((a, b) => parseCatalogPrice(a) - parseCatalogPrice(b));
+      break;
+    case "price_desc":
+      out.sort((a, b) => parseCatalogPrice(b) - parseCatalogPrice(a));
+      break;
+    case "bestseller":
+      out.sort((a, b) => (Number(b.units_sold) || 0) - (Number(a.units_sold) || 0));
+      break;
+    case "rating":
+      out.sort((a, b) => (Number(b.rating_average) || 0) - (Number(a.rating_average) || 0));
+      break;
+    default:
+      out.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" }));
+  }
+  return out;
+}
 
 export default function CategoryPage() {
   const toast = useNotify();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -76,20 +128,113 @@ export default function CategoryPage() {
     };
   }, []);
 
-  const byType = useMemo(() => {
+  const filteredProducts = useMemo(() => {
+    let list = [...products];
     const q = (searchParams.get("q") || "").trim().toLowerCase();
-    const map = {};
-    for (const p of products) {
-      if (q) {
+    if (q) {
+      list = list.filter((p) => {
         const haystack = `${p.name || ""} ${p.product_type_display || p.product_type || ""}`.toLowerCase();
-        if (!haystack.includes(q)) continue;
-      }
+        return haystack.includes(q);
+      });
+    }
+    const rawCat = (searchParams.get("cat") || "").trim().toLowerCase();
+    const cat = rawCat && CATALOG_CATEGORY_SLUGS.includes(rawCat) ? rawCat : "all";
+    if (cat !== "all") {
+      list = list.filter((p) => String(p.product_type || "").trim().toLowerCase() === cat);
+    }
+    const priceBand = (searchParams.get("price") || "all").trim();
+    if (priceBand !== "all") {
+      list = list.filter((p) => matchesPriceBand(parseCatalogPrice(p), priceBand));
+    }
+    return list;
+  }, [products, searchParams]);
+
+  const byType = useMemo(() => {
+    const sort = (searchParams.get("sort") || "name").trim();
+    const map = {};
+    for (const p of filteredProducts) {
       const key = p.product_type_display || p.product_type || "Other";
       if (!map[key]) map[key] = [];
       map[key].push(p);
     }
+    for (const k of Object.keys(map)) {
+      map[k] = sortProductList(map[k], sort);
+    }
     return map;
-  }, [products, searchParams]);
+  }, [filteredProducts, searchParams]);
+
+  const categorySectionOrder = useMemo(() => CATALOG_CATEGORIES.map((c) => c.type), []);
+
+  const sortedSectionEntries = useMemo(() => {
+    const entries = Object.entries(byType);
+    const rank = (entry) => {
+      const slug = String(entry[1][0]?.product_type || "").toLowerCase();
+      const idx = categorySectionOrder.indexOf(slug);
+      return idx === -1 ? 999 : idx;
+    };
+    entries.sort((a, b) => {
+      const d = rank(a) - rank(b);
+      if (d !== 0) return d;
+      return String(a[0]).localeCompare(String(b[0]), undefined, { sensitivity: "base" });
+    });
+    return entries;
+  }, [byType, categorySectionOrder]);
+
+  const categorySelectValue = useMemo(() => {
+    const raw = (searchParams.get("cat") || "").trim().toLowerCase();
+    if (raw && CATALOG_CATEGORY_SLUGS.includes(raw)) return raw;
+    return "all";
+  }, [searchParams]);
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    const rawCat = (searchParams.get("cat") || "").trim().toLowerCase();
+    if (rawCat && CATALOG_CATEGORY_SLUGS.includes(rawCat)) n += 1;
+    if ((searchParams.get("price") || "all") !== "all") n += 1;
+    if ((searchParams.get("sort") || "name") !== "name") n += 1;
+    return n;
+  }, [searchParams]);
+
+  function setParam(key, value, emptyValues) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        const isEmpty = emptyValues.includes(value);
+        if (isEmpty) next.delete(key);
+        else next.set(key, String(value));
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function clearProductFilters() {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        ["cat", "price", "stars", "sort", "q"].forEach((k) => next.delete(k));
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  function handleCategoryFilterChange(e) {
+    const v = (e.target.value || "all").trim().toLowerCase();
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (!v || v === "all") {
+          next.delete("cat");
+        } else {
+          next.set("cat", v);
+          next.delete("q");
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   useEffect(() => {
     window.localStorage.setItem(CATEGORY_SELECTIONS_KEY, JSON.stringify(selectionByType));
@@ -175,7 +320,7 @@ export default function CategoryPage() {
   function handleBuyNow(p, e) {
     e.preventDefault();
     if (isProductOutOfStock(p)) {
-      toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+      toast.warning(BUY_NOW_OUT_OF_STOCK_TOAST);
       return;
     }
     if (!getStoredToken()) {
@@ -216,15 +361,79 @@ export default function CategoryPage() {
           <p style={page.searchInfo}>
             Showing results for: <strong>{searchParams.get("q")}</strong>
           </p>
+        ) : (searchParams.get("cat") || "").trim() &&
+          CATALOG_CATEGORY_SLUGS.includes((searchParams.get("cat") || "").trim().toLowerCase()) ? (
+          <p style={page.searchInfo}>
+            Category:{" "}
+            <strong>
+              {CATALOG_CATEGORIES.find((c) => c.type === (searchParams.get("cat") || "").trim().toLowerCase())?.label ||
+                searchParams.get("cat")}
+            </strong>
+          </p>
         ) : null}
         <ShopPoliciesCallout />
       </header>
 
-      {Object.entries(byType).length === 0 ? (
-        <p style={page.emptyText}>No products match your search.</p>
+      <section style={page.filterBar} aria-label="Product filters">
+        <div style={page.filterRow}>
+          <div style={page.filterGroup}>
+            <span style={page.filterLabel}>Category</span>
+            <select
+              value={categorySelectValue}
+              onChange={handleCategoryFilterChange}
+              style={page.filterSelect}
+              aria-label="Filter by category"
+            >
+              <option value="all">All categories</option>
+              {CATALOG_CATEGORIES.map(({ type, label }) => (
+                <option key={type} value={type}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={page.filterGroup}>
+            <span style={page.filterLabel}>Price</span>
+            <select
+              value={priceParamToSelectValue(searchParams.get("price"))}
+              onChange={(e) => setParam("price", e.target.value, ["all"])}
+              style={page.filterSelect}
+              aria-label="Filter by price"
+            >
+              <option value="all">All prices</option>
+              <option value="under-500">Under Rs. 500</option>
+              <option value="500-999">Rs. 500 – 999</option>
+              <option value="1000-plus">Rs. 1,000+</option>
+            </select>
+          </div>
+          <div style={page.filterGroup}>
+            <span style={page.filterLabel}>Sort</span>
+            <select
+              value={searchParams.get("sort") || "name"}
+              onChange={(e) => setParam("sort", e.target.value, ["name"])}
+              style={page.filterSelect}
+              aria-label="Sort products"
+            >
+              <option value="name">Name (A–Z)</option>
+              <option value="price_asc">Price: low to high</option>
+              <option value="price_desc">Price: high to low</option>
+              <option value="bestseller">Most bought</option>
+              <option value="rating">Highest rated</option>
+            </select>
+          </div>
+          {activeFilterCount > 0 ? (
+            <button type="button" style={page.filterClear} onClick={clearProductFilters}>
+              Clear filters ({activeFilterCount})
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      {sortedSectionEntries.length === 0 ? (
+        <p style={page.emptyText}>No products match your filters or search.</p>
       ) : null}
 
-      {Object.entries(byType).map(([typeName, items]) => (
+      {sortedSectionEntries.map(([typeName, items]) => (
         <section key={typeName} style={page.section}>
           <h2 style={page.typeHeading}>{typeName}</h2>
           <div style={page.grid}>
@@ -259,6 +468,11 @@ export default function CategoryPage() {
                   </Link>
                   <p style={page.price}>{formatNPR(p.base_price)}</p>
                   <ProductStarsLine average={p.rating_average} count={p.rating_count} />
+                  {productSpecsSummaryLine(p) ? (
+                    <p style={page.materialTeaser} title={p.material}>
+                      {productSpecsSummaryLine(p)}
+                    </p>
+                  ) : null}
                   <div style={page.cardActions}>
                     <Link
                       to={customizeLink(p.product_type, p.id)}
@@ -301,6 +515,60 @@ const page = {
   wrap: { padding: "40px", maxWidth: "1200px", margin: "0 auto" },
   centered: { padding: "60px 24px", textAlign: "center" },
   header: { marginBottom: "32px" },
+  filterBar: {
+    marginBottom: "28px",
+    padding: "14px 16px",
+    background: "#fff",
+    borderRadius: "12px",
+    border: "1px solid #e8e8ec",
+    boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+  },
+  filterRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+    gap: "14px 20px",
+  },
+  filterGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    minWidth: "min(160px, 100%)",
+  },
+  filterLabel: {
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  },
+  filterSelect: {
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "8px 10px",
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#0f172a",
+    background: "#fff",
+    fontFamily: "inherit",
+    cursor: "pointer",
+    minWidth: "0",
+    width: "100%",
+    maxWidth: "220px",
+  },
+  filterClear: {
+    marginLeft: "auto",
+    alignSelf: "center",
+    border: "1px solid #cbd5e1",
+    borderRadius: "10px",
+    background: "#f8fafc",
+    color: "#334155",
+    fontSize: "13px",
+    fontWeight: 700,
+    fontFamily: "inherit",
+    padding: "8px 12px",
+    cursor: "pointer",
+  },
   title: { fontSize: "28px", fontWeight: "800", color: "#1a1a2e" },
   sub: { marginTop: "10px", color: "#555", maxWidth: "560px" },
   searchInfo: { marginTop: "8px", color: "#1a1a2e", fontSize: "14px" },
@@ -375,6 +643,16 @@ const page = {
     margin: "0 0 8px 0",
     lineHeight: 1.35,
     minHeight: "1.35em",
+  },
+  materialTeaser: {
+    fontSize: "12px",
+    color: "#64748b",
+    lineHeight: 1.45,
+    margin: "0 0 8px 0",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
   },
   cardActions: {
     marginTop: "auto",

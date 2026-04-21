@@ -263,11 +263,15 @@ export function adminCreateProduct(formData) {
   });
 }
 
-export function adminPatchProductQuantity(productId, quantity) {
+export function adminPatchProduct(productId, payload) {
   return apiFetch(`/api/users/admin/products/${productId}/`, {
     method: "PATCH",
-    body: JSON.stringify({ quantity }),
+    body: JSON.stringify(payload),
   });
+}
+
+export function adminPatchProductQuantity(productId, quantity) {
+  return adminPatchProduct(productId, { quantity });
 }
 
 export function fetchAdminReport() {

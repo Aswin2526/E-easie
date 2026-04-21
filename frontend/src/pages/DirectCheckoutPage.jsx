@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { fetchProduct, checkoutBuyNowWithEsewa, submitEsewaPaymentForm } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
-import { getProductStockQty, isProductOutOfStock } from "../productStock";
+import { BUY_NOW_OUT_OF_STOCK_TOAST, getProductStockQty, isProductOutOfStock } from "../productStock";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function DirectCheckoutPage() {
@@ -122,7 +122,7 @@ export default function DirectCheckoutPage() {
     e.preventDefault();
     if (!product) return;
     if (outOfStock) {
-      toast.warning("Out of stock", "This product is not available right now.");
+      toast.warning(BUY_NOW_OUT_OF_STOCK_TOAST);
       return;
     }
     if (stockQty !== null && quantity > stockQty) {
@@ -193,7 +193,11 @@ export default function DirectCheckoutPage() {
           <span style={s.crumbCurrent}>Checkout</span>
         </nav>
         <h1 style={s.title}>Checkout</h1>
-        <p style={s.oosBanner}>Out of stock — this item cannot be purchased right now.</p>
+        <p style={s.oosBanner}>
+          <strong>Out of stock!</strong>
+          <br />
+          May want to add in wishlist or add to cart.
+        </p>
         <div style={s.container}>
           <div style={s.summaryCard}>
             <div style={s.thumbWrap}>
@@ -206,6 +210,7 @@ export default function DirectCheckoutPage() {
             <div style={s.summaryBody}>
               <h2 style={s.productName}>{product.name}</h2>
               <p style={s.meta}>{product.product_type_display || product.product_type}</p>
+              {product.material ? <p style={s.detailTeaser}>{product.material}</p> : null}
               <p style={s.priceLine}>{formatNPR(product.base_price)}</p>
             </div>
           </div>
@@ -241,6 +246,7 @@ export default function DirectCheckoutPage() {
           <div style={s.summaryBody}>
             <h2 style={s.productName}>{product.name}</h2>
             <p style={s.meta}>{product.product_type_display || product.product_type}</p>
+            {product.material ? <p style={s.detailTeaser}>{product.material}</p> : null}
             <p style={s.priceLine}>
               {formatNPR(product.base_price)}
               {quantity > 1 ? ` × ${quantity}` : null}
@@ -384,6 +390,12 @@ const s = {
   summaryBody: { flex: 1, minWidth: 0 },
   productName: { margin: "0 0 6px 0", fontSize: "18px", fontWeight: 800, color: "#1a1a2e" },
   meta: { margin: "0 0 8px 0", fontSize: "13px", color: "#64748b", fontWeight: 600 },
+  detailTeaser: {
+    margin: "0 0 10px 0",
+    fontSize: "13px",
+    color: "#475569",
+    lineHeight: 1.45,
+  },
   priceLine: { margin: "0 0 12px 0", fontWeight: 700, color: "#334155" },
   qtyRow: {
     display: "flex",

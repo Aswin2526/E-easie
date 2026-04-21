@@ -12,17 +12,13 @@ const VARIANT_META = {
 
 function pack(variant, a, b) {
   if (a && typeof a === "object") {
-    return {
-      variant,
-      duration: 5200,
-      ...a,
-      title: String(a.title ?? a.message ?? "").trim(),
-      message: "",
-      variant,
-    };
+    const duration = typeof a.duration === "number" ? a.duration : 5200;
+    const title = String(a.title ?? "").trim();
+    const message = String(a.message ?? "").trim();
+    return { variant, duration, ...a, title, message };
   }
   if (b != null && String(b).length) {
-    return { variant, title: String(a ?? "").trim(), message: "", duration: 5200 };
+    return { variant, title: String(a ?? "").trim(), message: String(b).trim(), duration: 5200 };
   }
   return { variant, title: String(a ?? "").trim(), message: "", duration: 5200 };
 }
@@ -149,11 +145,13 @@ export function NotifyProvider({ children }) {
       if (typeof opts === "string") {
         return push({ variant: "info", title: String(opts).trim(), message: "", duration: 5200 });
       }
+      const duration = typeof opts.duration === "number" ? opts.duration : 5200;
       return push({
-        duration: 5200,
+        variant: "info",
+        duration,
         ...opts,
-        title: String(opts?.title ?? opts?.message ?? "").trim(),
-        message: "",
+        title: String(opts?.title ?? "").trim(),
+        message: String(opts?.message ?? "").trim(),
       });
     },
     [push]

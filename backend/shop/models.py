@@ -25,6 +25,19 @@ class Product(models.Model):
     slug = models.SlugField(max_length=220, unique=True)
     product_type = models.CharField(max_length=20, choices=ProductType.choices)
     description = models.TextField(blank=True)
+    material = models.CharField(
+        max_length=400,
+        blank=True,
+        default="",
+        help_text="Fabric composition or feel — shown on the product page.",
+    )
+    care_instructions = models.TextField(blank=True, default="", help_text="Washing and care guidance.")
+    fit_notes = models.TextField(blank=True, default="", help_text="Sizing and fit guidance for shoppers.")
+    highlights = models.TextField(
+        blank=True,
+        default="",
+        help_text="Short bullet points, one per line, for the product page.",
+    )
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=100)
     image = models.ImageField(upload_to="products/", blank=True, null=True)

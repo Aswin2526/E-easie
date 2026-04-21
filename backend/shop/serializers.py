@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from .inventory import available_units_for_product
 from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
 
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
@@ -13,6 +14,9 @@ class ProductSerializer(serializers.ModelSerializer):
     product_type_display = serializers.CharField(source="get_product_type_display", read_only=True)
     rating_average = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
+    units_sold = serializers.SerializerMethodField()
+    # Matches admin dashboard: sellable units (Product.quantity minus units on non-cancelled orders).
+    quantity = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -23,6 +27,10 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_type",
             "product_type_display",
             "description",
+            "material",
+            "care_instructions",
+            "fit_notes",
+            "highlights",
             "base_price",
             "quantity",
             "default_part_colors",
@@ -32,8 +40,14 @@ class ProductSerializer(serializers.ModelSerializer):
             "created_at",
             "rating_average",
             "rating_count",
+            "units_sold",
         )
         read_only_fields = fields
+
+    def get_quantity(self, obj):
+        if hasattr(obj, "_available_units"):
+            return int(obj._available_units)
+        return available_units_for_product(obj)
 
     def get_rating_average(self, obj):
         v = getattr(obj, "rating_avg", None)
@@ -43,6 +57,9 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_rating_count(self, obj):
         return int(getattr(obj, "rating_cnt", 0) or 0)
+
+    def get_units_sold(self, obj):
+        return int(getattr(obj, "_ordered_u", 0) or 0)
 
 
 class ProductRatingWriteSerializer(serializers.Serializer):
@@ -207,7 +224,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"quantity": "Invalid quantity."})
         if qty < 1:
             qty = 1
-        if product.quantity < qty:
+        if qty > available_units_for_product(product):
             raise serializers.ValidationError({"detail": "This product is out of stock."})
 
         request = self.context.get("request")

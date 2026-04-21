@@ -16,9 +16,10 @@ import {
   nonDefaultPartColorsMarkup,
 } from "../pricing";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
-import { getProductStockQty, isProductOutOfStock } from "../productStock";
+import { BUY_NOW_OUT_OF_STOCK_TOAST, getProductStockQty, isProductOutOfStock } from "../productStock";
 import { getTrendingShowcase } from "../data/trendingShowcases";
 import ProductStarsLine from "../components/ProductStarsLine";
+import ProductSpecsPanel from "../components/ProductSpecsPanel";
 import { useNotify } from "../contexts/NotifyContext";
 
 
@@ -645,13 +646,16 @@ export default function CustomizePage() {
                   {formatNPR(orderUnitPrice)}
                   {orderPriceBreakdownNote}
                 </p>
+                <div style={{ marginTop: "12px", maxWidth: "520px" }}>
+                  <ProductSpecsPanel product={selectedProduct} priceText={null} showStock />
+                </div>
                 <div style={s.checkoutShortcut}>
                   <button
                     type="button"
                     style={s.checkoutShortcutBtn}
                     onClick={() => {
                       if (selectedProduct && isProductOutOfStock(selectedProduct)) {
-                        toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+                        toast.warning(BUY_NOW_OUT_OF_STOCK_TOAST);
                         return;
                       }
                       if (!getStoredToken()) {

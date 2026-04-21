@@ -10,3 +10,9 @@ export function isProductOutOfStock(product) {
   const q = getProductStockQty(product);
   return q !== null && q <= 0;
 }
+
+/** Shown when Buy now / checkout is blocked because catalog quantity is 0 (admin inventory). */
+export const BUY_NOW_OUT_OF_STOCK_TOAST = {
+  title: "Out of stock!",
+  message: "May want to add in wishlist or add to cart.",
+};

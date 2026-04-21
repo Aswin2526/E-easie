@@ -11,10 +11,11 @@ import {
 import { formatNPR } from "../currency";
 import { getTrendingShowcase } from "../data/trendingShowcases";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
-import { isProductOutOfStock } from "../productStock";
+import { BUY_NOW_OUT_OF_STOCK_TOAST, isProductOutOfStock } from "../productStock";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ProductRatingsPanel from "../components/ProductRatingsPanel";
 import ShopPoliciesCallout from "../components/ShopPoliciesCallout";
+import ProductSpecsPanel from "../components/ProductSpecsPanel";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function ProductDetailPage() {
@@ -126,7 +127,7 @@ export default function ProductDetailPage() {
 
   function handleBuyNow(p) {
     if (isProductOutOfStock(p)) {
-      toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+      toast.warning(BUY_NOW_OUT_OF_STOCK_TOAST);
       return;
     }
     if (!getStoredToken()) {
@@ -209,6 +210,21 @@ export default function ProductDetailPage() {
                   : page.img
               }
             />
+            {ctaProduct ? (
+              <button
+                type="button"
+                style={{
+                  ...page.wishlistIconBtn,
+                  ...(ctaDisabled ? page.btnDisabled : {}),
+                }}
+                disabled={ctaDisabled}
+                onClick={() => ctaProduct && handleWishlist(ctaProduct, orderLabel)}
+                title={wishlistEntryId ? "Remove from wishlist" : "Save to wishlist"}
+                aria-label={wishlistEntryId ? "Remove from wishlist" : "Save to wishlist"}
+              >
+                {wishlistEntryId ? "❤️" : "♡"}
+              </button>
+            ) : null}
           </div>
         </div>
         <div style={page.detailCol}>
@@ -224,6 +240,7 @@ export default function ProductDetailPage() {
             <ProductStarsLine average={catalogProduct.rating_average} count={catalogProduct.rating_count} />
           )}
           {displayDescription ? <p style={page.description}>{displayDescription}</p> : null}
+          {catalogProduct ? <ProductSpecsPanel product={catalogProduct} priceText={null} showStock /> : null}
           <ShopPoliciesCallout />
 
           {isTrending ? (
@@ -265,14 +282,6 @@ export default function ProductDetailPage() {
                 Buy now
               </button>
             </div>
-            <button
-              type="button"
-              style={{ ...page.btnGhost, ...(ctaDisabled ? page.btnDisabled : {}) }}
-              disabled={ctaDisabled}
-              onClick={() => ctaProduct && handleWishlist(ctaProduct, orderLabel)}
-            >
-              {wishlistEntryId ? "♡ Remove from wishlist" : "♡ Save to wishlist"}
-            </button>
           </div>
 
           {!isTrending && catalogProduct ? (
@@ -298,14 +307,40 @@ const page = {
     gap: "40px",
     alignItems: "start",
   },
-  imageCol: { minWidth: 0 },
+  imageCol: {
+    minWidth: 0,
+    alignSelf: "start",
+    position: "sticky",
+    top: "88px",
+    zIndex: 1,
+  },
   imgWrap: {
+    position: "relative",
     borderRadius: "12px",
     overflow: "hidden",
     background: "#f1f5f9",
     border: "1px solid #e2e8f0",
     aspectRatio: "4 / 5",
     maxHeight: "520px",
+  },
+  wishlistIconBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: "44px",
+    height: "44px",
+    borderRadius: "50%",
+    border: "1px solid rgba(15, 23, 42, 0.12)",
+    background: "rgba(255, 255, 255, 0.92)",
+    boxShadow: "0 2px 12px rgba(15, 23, 42, 0.12)",
+    cursor: "pointer",
+    fontSize: "20px",
+    lineHeight: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    zIndex: 2,
   },
   img: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
   detailCol: { minWidth: 0 },
@@ -363,16 +398,6 @@ const page = {
     fontWeight: 700,
     fontSize: "14px",
     color: "#1f2937",
-  },
-  btnGhost: {
-    padding: "10px 14px",
-    background: "transparent",
-    border: "1px solid #cbd5e1",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: "14px",
-    color: "#334155",
   },
   btnDisabled: { opacity: 0.45, cursor: "not-allowed" },
 };

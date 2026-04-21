@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { adminCreateProduct, adminPatchProductQuantity, fetchAdminProductsCatalog } from "../api";
+import { adminCreateProduct, adminPatchProduct, adminPatchProductQuantity, fetchAdminProductsCatalog } from "../api";
 import { formatNPR } from "../currency";
 import { adminSharedStyles as s } from "../admin/sharedStyles";
 import { AdminPaginationBar, useAdminPagination } from "../admin/AdminPagination";
@@ -23,9 +23,17 @@ export default function AdminProductsPage() {
     product_type: "tshirt",
     base_price: "",
     description: "",
+    material: "",
+    care_instructions: "",
+    fit_notes: "",
+    highlights: "",
     is_active: true,
     image: null,
   });
+  const [detailsModalProduct, setDetailsModalProduct] = useState(null);
+  const [detailsDraft, setDetailsDraft] = useState(null);
+  const [detailsSaving, setDetailsSaving] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +103,10 @@ export default function AdminProductsPage() {
       product_type: "tshirt",
       base_price: "",
       description: "",
+      material: "",
+      care_instructions: "",
+      fit_notes: "",
+      highlights: "",
       is_active: true,
       image: null,
     });
@@ -111,6 +123,10 @@ export default function AdminProductsPage() {
       form.append("product_type", newProduct.product_type);
       form.append("base_price", String(newProduct.base_price).trim());
       form.append("description", newProduct.description.trim());
+      form.append("material", newProduct.material.trim());
+      form.append("care_instructions", newProduct.care_instructions.trim());
+      form.append("fit_notes", newProduct.fit_notes.trim());
+      form.append("highlights", newProduct.highlights.trim());
       form.append("is_active", newProduct.is_active ? "true" : "false");
       if (newProduct.image) form.append("image", newProduct.image);
 
@@ -124,6 +140,38 @@ export default function AdminProductsPage() {
       setAddError(apiErrorMessage(err, "Failed to create product."));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function openDetailsEditor(p) {
+    setDetailsModalProduct(p);
+    setDetailsDraft({
+      description: p.description || "",
+      material: p.material || "",
+      care_instructions: p.care_instructions || "",
+      fit_notes: p.fit_notes || "",
+      highlights: p.highlights || "",
+    });
+    setDetailsError("");
+  }
+
+  async function saveProductDetails(e) {
+    e.preventDefault();
+    if (!detailsModalProduct || !detailsDraft) return;
+    setDetailsSaving(true);
+    setDetailsError("");
+    try {
+      const res = await adminPatchProduct(detailsModalProduct.id, detailsDraft);
+      const updated = res?.product;
+      if (updated) {
+        setProducts((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+      }
+      setDetailsModalProduct(null);
+      setDetailsDraft(null);
+    } catch (err) {
+      setDetailsError(apiErrorMessage(err, "Could not save product details."));
+    } finally {
+      setDetailsSaving(false);
     }
   }
 
@@ -142,16 +190,10 @@ export default function AdminProductsPage() {
     setQtySavingById((prev) => ({ ...prev, [productId]: true }));
     setQtyError("");
     try {
-      await adminPatchProductQuantity(productId, parsed);
+      const res = await adminPatchProductQuantity(productId, parsed);
+      const updated = res?.product;
       setProducts((prev) =>
-        prev.map((p) =>
-          p.id === productId
-            ? {
-                ...p,
-                quantity: parsed,
-              }
-            : p,
-        ),
+        prev.map((p) => (p.id === productId ? { ...p, ...(updated || { quantity: parsed }) } : p)),
       );
     } catch (err) {
       setQtyError(apiErrorMessage(err, "Failed to update quantity."));
@@ -217,6 +259,7 @@ export default function AdminProductsPage() {
               <th style={s.th}>Name</th>
               <th style={s.th}>Price</th>
               <th style={s.th}>Quantity</th>
+              <th style={s.th}>Details</th>
             </tr>
           </thead>
           <tbody>
@@ -257,6 +300,11 @@ export default function AdminProductsPage() {
                     />
                     {qtySavingById[p.id] ? <span style={qtyEditor.status}>Saving...</span> : null}
                   </div>
+                </td>
+                <td style={s.td}>
+                  <button type="button" style={detailsBtn} onClick={() => openDetailsEditor(p)}>
+                    Edit copy
+                  </button>
                 </td>
               </tr>
             ))}
@@ -322,6 +370,42 @@ export default function AdminProductsPage() {
                 />
               </label>
               <label style={modal.label}>
+                Material / fabric
+                <input
+                  value={newProduct.material}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, material: e.target.value }))}
+                  style={modal.input}
+                  placeholder="e.g. Cotton-rich jersey"
+                />
+              </label>
+              <label style={modal.label}>
+                Care instructions
+                <textarea
+                  rows={2}
+                  value={newProduct.care_instructions}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, care_instructions: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              <label style={modal.label}>
+                Fit &amp; sizing notes
+                <textarea
+                  rows={2}
+                  value={newProduct.fit_notes}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, fit_notes: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              <label style={modal.label}>
+                Highlights (one per line)
+                <textarea
+                  rows={3}
+                  value={newProduct.highlights}
+                  onChange={(e) => setNewProduct((p) => ({ ...p, highlights: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              <label style={modal.label}>
                 Image
                 <input
                   type="file"
@@ -350,6 +434,77 @@ export default function AdminProductsPage() {
                 </button>
                 <button type="submit" style={modal.submitBtn} disabled={submitting}>
                   {submitting ? "Adding..." : "Add product"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+      {detailsModalProduct && detailsDraft ? (
+        <div style={modal.backdrop} onClick={() => (detailsSaving ? null : setDetailsModalProduct(null))}>
+          <section
+            style={{ ...modal.card, maxWidth: "640px", maxHeight: "90vh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={modal.title}>Product details — {detailsModalProduct.name}</h3>
+            <form onSubmit={saveProductDetails} style={modal.form}>
+              <label style={modal.label}>
+                Description
+                <textarea
+                  rows={4}
+                  value={detailsDraft.description}
+                  onChange={(e) => setDetailsDraft((d) => ({ ...d, description: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              <label style={modal.label}>
+                Material / fabric (max 400 chars)
+                <input
+                  maxLength={400}
+                  value={detailsDraft.material}
+                  onChange={(e) => setDetailsDraft((d) => ({ ...d, material: e.target.value }))}
+                  style={modal.input}
+                />
+              </label>
+              <label style={modal.label}>
+                Care instructions
+                <textarea
+                  rows={3}
+                  value={detailsDraft.care_instructions}
+                  onChange={(e) => setDetailsDraft((d) => ({ ...d, care_instructions: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              <label style={modal.label}>
+                Fit &amp; sizing notes
+                <textarea
+                  rows={3}
+                  value={detailsDraft.fit_notes}
+                  onChange={(e) => setDetailsDraft((d) => ({ ...d, fit_notes: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              <label style={modal.label}>
+                Highlights (one per line)
+                <textarea
+                  rows={4}
+                  value={detailsDraft.highlights}
+                  onChange={(e) => setDetailsDraft((d) => ({ ...d, highlights: e.target.value }))}
+                  style={modal.textarea}
+                />
+              </label>
+              {detailsError ? <p style={s.error}>{detailsError}</p> : null}
+              <div style={modal.actions}>
+                <button
+                  type="button"
+                  onClick={() => (detailsSaving ? null : setDetailsModalProduct(null))}
+                  style={modal.cancelBtn}
+                  disabled={detailsSaving}
+                >
+                  Cancel
+                </button>
+                <button type="submit" style={modal.submitBtn} disabled={detailsSaving}>
+                  {detailsSaving ? "Saving…" : "Save details"}
                 </button>
               </div>
             </form>
@@ -398,6 +553,19 @@ const catalogHeader = {
   justifyContent: "space-between",
   gap: "12px",
   padding: "16px 16px 8px",
+};
+
+const detailsBtn = {
+  border: "1px solid #cbd5e1",
+  borderRadius: "8px",
+  background: "#f8fafc",
+  color: "#0f172a",
+  fontSize: "12px",
+  fontWeight: 700,
+  fontFamily: "inherit",
+  padding: "6px 10px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
 };
 
 const addProductButton = {

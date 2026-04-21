@@ -9,7 +9,7 @@ import {
   nonDefaultPartColorsMarkup,
 } from "../pricing";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
-import { getProductStockQty, isProductOutOfStock } from "../productStock";
+import { BUY_NOW_OUT_OF_STOCK_TOAST, getProductStockQty, isProductOutOfStock } from "../productStock";
 import { useNotify } from "../contexts/NotifyContext";
 
 export default function CartPage() {
@@ -107,10 +107,7 @@ export default function CartPage() {
     for (const item of cart.items) {
       const p = item.product_detail;
       if (isProductOutOfStock(p)) {
-        toast.warning(
-          "Out of stock",
-          `${p?.name || "An item"} cannot be purchased until it is restocked. Remove it from your cart or wait for new stock.`
-        );
+        toast.warning(BUY_NOW_OUT_OF_STOCK_TOAST);
         return;
       }
       const sq = getProductStockQty(p);

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { clearAuth, getStoredName, getStoredRole, getStoredToken, fetchCart, fetchWishlist } from "../api";
+import { matchCategorySlug } from "../catalogCategories";
 
 const linkStyle = ({ isActive }) => ({
   textDecoration: "none",
@@ -57,7 +58,16 @@ export default function Navbar() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const term = searchTerm.trim();
-    navigate(term ? `/category?q=${encodeURIComponent(term)}` : "/category");
+    if (!term) {
+      navigate("/category");
+      return;
+    }
+    const catSlug = matchCategorySlug(term);
+    if (catSlug) {
+      navigate(`/category?cat=${encodeURIComponent(catSlug)}`);
+      return;
+    }
+    navigate(`/category?q=${encodeURIComponent(term)}`);
   };
 
   return (
@@ -174,12 +184,16 @@ export default function Navbar() {
 
 const styles = {
   navbar: {
+    position: "sticky",
+    top: 0,
+    zIndex: 200,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     padding: "18px 40px",
     background: "#fff",
     borderBottom: "1px solid #eee",
+    boxShadow: "0 1px 0 rgba(15, 23, 42, 0.06)",
   },
   navLeft: { display: "flex", alignItems: "center" },
   navLeftAuth: { display: "flex", alignItems: "center", flex: "0 0 auto" },

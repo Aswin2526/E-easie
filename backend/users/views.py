@@ -565,6 +565,11 @@ def admin_products_list(request):
             "name": p.name,
             "slug": p.slug,
             "product_type": p.product_type,
+            "description": p.description or "",
+            "material": p.material or "",
+            "care_instructions": p.care_instructions or "",
+            "fit_notes": p.fit_notes or "",
+            "highlights": p.highlights or "",
             "base_price": str(p.base_price),
             "quantity": available_qty,
             "is_active": p.is_active,
@@ -605,11 +610,20 @@ def admin_products_list(request):
             slug = f"{base_slug[: max(1, 220 - len(suffix))]}{suffix}"
             idx += 1
 
+        material = str(request.data.get("material", "") or "").strip()[:400]
+        care_instructions = str(request.data.get("care_instructions", "") or "").strip()
+        fit_notes = str(request.data.get("fit_notes", "") or "").strip()
+        highlights = str(request.data.get("highlights", "") or "").strip()
+
         p = Product.objects.create(
             name=name,
             slug=slug,
             product_type=product_type,
             description=description,
+            material=material,
+            care_instructions=care_instructions,
+            fit_notes=fit_notes,
+            highlights=highlights,
             base_price=base_price,
             quantity=100,
             image=image,
@@ -634,15 +648,6 @@ def admin_product_detail(request, product_id):
     except Product.DoesNotExist:
         return Response({"detail": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    if "quantity" not in request.data:
-        return Response({"detail": "Field quantity is required."}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        quantity = int(str(request.data.get("quantity", "")).strip())
-    except Exception:
-        return Response({"detail": "quantity must be a whole number."}, status=status.HTTP_400_BAD_REQUEST)
-    if quantity < 0:
-        return Response({"detail": "quantity cannot be negative."}, status=status.HTTP_400_BAD_REQUEST)
-
     ordered_qty = (
         Order.objects.filter(customization__product_id=product.id)
         .exclude(status=Order.Status.CANCELLED)
@@ -650,10 +655,48 @@ def admin_product_detail(request, product_id):
         .get("total")
         or 0
     )
-    # Incoming quantity is desired available stock; store base stock internally.
-    product.quantity = int(quantity) + int(ordered_qty)
-    product.save(update_fields=["quantity"])
-    return Response({"id": product.id, "quantity": quantity, "message": "Quantity updated."})
+
+    update_fields = []
+
+    if "quantity" in request.data:
+        try:
+            quantity = int(str(request.data.get("quantity", "")).strip())
+        except Exception:
+            return Response({"detail": "quantity must be a whole number."}, status=status.HTTP_400_BAD_REQUEST)
+        if quantity < 0:
+            return Response({"detail": "quantity cannot be negative."}, status=status.HTTP_400_BAD_REQUEST)
+        product.quantity = int(quantity) + int(ordered_qty)
+        update_fields.append("quantity")
+
+    text_specs = (
+        ("description", None),
+        ("material", 400),
+        ("care_instructions", None),
+        ("fit_notes", None),
+        ("highlights", None),
+    )
+    for field, max_len in text_specs:
+        if field not in request.data:
+            continue
+        val = str(request.data.get(field) or "").strip()
+        if max_len is not None and len(val) > max_len:
+            return Response(
+                {"detail": f"{field} must be at most {max_len} characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        setattr(product, field, val)
+        update_fields.append(field)
+
+    if not update_fields:
+        return Response(
+            {
+                "detail": "Provide quantity and/or one of: description, material, care_instructions, fit_notes, highlights."
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    product.save(update_fields=list(dict.fromkeys(update_fields)))
+    return Response({"product": _product_payload(product), "message": "Product updated."})
 
 
 @api_view(["GET"])

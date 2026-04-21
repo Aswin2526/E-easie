@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { fetchWishlist, removeFromWishlist, addToCart, getStoredToken } from "../api";
 import { formatNPR } from "../currency";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
-import { isProductOutOfStock } from "../productStock";
+import { BUY_NOW_OUT_OF_STOCK_TOAST, isProductOutOfStock } from "../productStock";
 import { useNotify } from "../contexts/NotifyContext";
+import { productSpecsSummaryLine } from "../components/ProductSpecsPanel";
 
 export default function WishlistPage() {
   const toast = useNotify();
@@ -57,7 +58,7 @@ export default function WishlistPage() {
 
   function handleBuyNow(product) {
     if (isProductOutOfStock(product)) {
-      toast.warning("Out of stock", "This product cannot be purchased until it is restocked.");
+      toast.warning(BUY_NOW_OUT_OF_STOCK_TOAST);
       return;
     }
     if (!getStoredToken()) {
@@ -87,6 +88,11 @@ export default function WishlistPage() {
                 <div style={s.cardBody}>
                   <h3 style={s.cardTitle}>{p.name}</h3>
                   <p style={s.price}>{formatNPR(p.base_price)}</p>
+                  {productSpecsSummaryLine(p) ? (
+                    <p style={s.materialTeaser} title={p.material}>
+                      {productSpecsSummaryLine(p)}
+                    </p>
+                  ) : null}
                   <div style={s.buttonGroup}>
                     <div style={s.cartBuyRow}>
                       <button
@@ -159,6 +165,16 @@ const s = {
     overflow: "hidden",
   },
   price: { color: "#444", margin: "0 0 8px 0", lineHeight: 1.35, minHeight: "1.35em" },
+  materialTeaser: {
+    fontSize: "12px",
+    color: "#64748b",
+    lineHeight: 1.45,
+    margin: "0 0 10px 0",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
   buttonGroup: { display: "flex", flexDirection: "column", flexWrap: "nowrap", gap: "8px", marginTop: "auto" },
   cartBuyRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%" },
   btnPrimary: { background: "#1a1a2e", color: "#fff", border: "none", padding: "10px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "13px", fontWeight: "700", width: "100%" },

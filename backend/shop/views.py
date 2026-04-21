@@ -6,7 +6,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, F, IntegerField, OuterRef, Subquery, Sum, Value
+from django.db.models.functions import Coalesce, Greatest
 from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -14,6 +15,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from .inventory import available_units_for_product
 from .models import Customization, Order, Product, ProductRating, Wishlist, Cart, CartItem
 from .esewa import (
     decode_callback_data,
@@ -490,9 +492,29 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
 
     def get_queryset(self):
+        ordered_subq = (
+            Order.objects.filter(customization__product_id=OuterRef("pk"))
+            .exclude(status=Order.Status.CANCELLED)
+            .values("customization__product_id")
+            .annotate(_s=Sum("quantity"))
+            .values("_s")[:1]
+        )
         return (
             Product.objects.filter(is_active=True)
             .annotate(rating_avg=Avg("ratings__stars"), rating_cnt=Count("ratings"))
+            .annotate(
+                _ordered_u=Coalesce(
+                    Subquery(ordered_subq, output_field=IntegerField()),
+                    Value(0),
+                )
+            )
+            .annotate(
+                _available_units=Greatest(
+                    Value(0),
+                    F("quantity") - F("_ordered_u"),
+                    output_field=IntegerField(),
+                )
+            )
             .order_by("name")
         )
 
@@ -1003,8 +1025,8 @@ class CartItemViewSet(viewsets.ModelViewSet):
         add_qty = int(serializer.validated_data.get("quantity", 1) or 1)
         if add_qty < 1:
             raise ValidationError({"detail": "Invalid quantity."})
-        stock = int(product.quantity or 0)
-        # When warehouse qty is 0, still allow one cart line so shoppers can save the item;
+        stock = available_units_for_product(product)
+        # When sellable qty is 0, still allow one cart line so shoppers can save the item;
         # checkout remains blocked until stock returns (OrderCreateSerializer).
         max_q = stock if stock > 0 else 1
 
@@ -1029,7 +1051,7 @@ class CartItemViewSet(viewsets.ModelViewSet):
         new_qty = int(serializer.validated_data.get("quantity", instance.quantity) or 1)
         if new_qty < 1:
             raise ValidationError({"detail": "Invalid quantity."})
-        stock = int(product.quantity or 0)
+        stock = available_units_for_product(product)
         max_q = stock if stock > 0 else 1
         if new_qty > max_q:
             raise ValidationError({"detail": "Not enough stock for this quantity."})
