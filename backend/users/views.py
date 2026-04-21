@@ -81,6 +81,11 @@ def login_user(request):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        if not user.is_active:
+            return Response(
+                {"error": "Your account is blocked. Please contact support."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         user_auth = authenticate(username=user.username, password=password)
         if user_auth is not None:
             token, _ = Token.objects.get_or_create(user=user_auth)

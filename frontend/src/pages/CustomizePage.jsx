@@ -17,7 +17,10 @@ import {
 } from "../pricing";
 import { getProductImageSrc, getProductImageStyle } from "../productImages";
 import { BUY_NOW_OUT_OF_STOCK_TOAST, getProductStockQty, isProductOutOfStock } from "../productStock";
-import { getTrendingShowcase } from "../data/trendingShowcases";
+import {
+  getTrendingPartColorOverrides,
+  getTrendingShowcase,
+} from "../data/trendingShowcases";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ProductSpecsPanel from "../components/ProductSpecsPanel";
 import { useNotify } from "../contexts/NotifyContext";
@@ -67,7 +70,11 @@ export default function CustomizePage() {
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [productId, setProductId] = useState(primaryFromUrl || productFromUrl || "");
-  const [userPickedProduct, setUserPickedProduct] = useState(Boolean(primaryFromUrl || productFromUrl));
+  const [userPickedProduct, setUserPickedProduct] = useState(() => {
+    const fromUrl = Boolean(primaryFromUrl || productFromUrl);
+    const fromTrending = Boolean(showcaseFromUrl && String(showcaseFromUrl).trim());
+    return fromUrl && !fromTrending;
+  });
   const [secondaryProductId, setSecondaryProductId] = useState(secondaryFromUrl || "");
   const [fabric, setFabric] = useState("cotton");
   const [bodyColor, setBodyColor] = useState("#2d2d2d");
@@ -139,12 +146,14 @@ export default function CustomizePage() {
   useEffect(() => {
     if (!products.length) return;
     const resolvedPrimary = primaryFromUrl || productFromUrl;
+    const trendingEntry =
+      Boolean(relatedShowcase) || Boolean(showcaseFromUrl && String(showcaseFromUrl).trim());
     if (resolvedPrimary) {
       const p = products.find((x) => String(x.id) === String(resolvedPrimary));
       if (p) {
         setSelectedCategory(categoryFromUrl || p.product_type);
         setProductId(String(p.id));
-        setUserPickedProduct(!relatedShowcase);
+        setUserPickedProduct(!trendingEntry);
       }
     } else if (relatedShowcase?.catalogSlug) {
       const p = products.find((x) => x.slug === relatedShowcase.catalogSlug);
@@ -159,7 +168,15 @@ export default function CustomizePage() {
       setSelectedCategory(categoryFromUrl);
     }
     setSecondaryProductId(secondaryFromUrl || "");
-  }, [products, productFromUrl, primaryFromUrl, secondaryFromUrl, categoryFromUrl, relatedShowcase]);
+  }, [
+    products,
+    productFromUrl,
+    primaryFromUrl,
+    secondaryFromUrl,
+    categoryFromUrl,
+    relatedShowcase,
+    showcaseFromUrl,
+  ]);
 
   const countByType = useMemo(() => {
     const m = {};
@@ -248,15 +265,29 @@ export default function CustomizePage() {
       selectedProduct.product_type,
       selectedProduct.default_fabric,
       JSON.stringify(selectedProduct.default_part_colors ?? null),
+      userPickedProduct ? "1" : "0",
+      relatedShowcase?.showcaseSlug || "",
     ].join("|");
-  }, [selectedProduct]);
+  }, [selectedProduct, userPickedProduct, relatedShowcase]);
+
+  const trendingStyleColorsActive = Boolean(
+    userPickedProduct &&
+      relatedShowcase &&
+      selectedProduct?.slug === relatedShowcase.catalogSlug
+  );
 
   useEffect(() => {
     if (!selectedProduct) return;
     const slug = selectedProduct.slug || "";
     const ptype = selectedProduct.product_type || selectedCategory || "";
     const inferred = catalogDefaultPartColors(slug, ptype);
-    const merged = mergePartColorDefaults(inferred, selectedProduct.default_part_colors);
+    let merged = mergePartColorDefaults(inferred, selectedProduct.default_part_colors);
+    if (trendingStyleColorsActive) {
+      merged = mergePartColorDefaults(
+        merged,
+        getTrendingPartColorOverrides(relatedShowcase, selectedProduct)
+      );
+    }
     const fb = PART_COLOR_DEFAULTS;
     const body = normalizeHexColor(merged.body || merged.front) ?? fb.body;
     const back = normalizeHexColor(merged.back) ?? body;
@@ -271,12 +302,17 @@ export default function CustomizePage() {
     const df = String(selectedProduct.default_fabric || "cotton").toLowerCase();
     const allowedFabrics = FABRICS.map((x) => x.value);
     setFabric(allowedFabrics.includes(df) ? df : "cotton");
-  }, [productColorDefaultsKey, selectedCategory]);
+  }, [productColorDefaultsKey, selectedCategory, trendingStyleColorsActive, relatedShowcase]);
 
   const catalogPartColorRef = useMemo(() => {
     if (!selectedProduct) return {};
-    return effectiveCatalogPartColors(selectedProduct, selectedCategory);
-  }, [selectedProduct, selectedCategory]);
+    const base = effectiveCatalogPartColors(selectedProduct, selectedCategory);
+    if (!trendingStyleColorsActive) return base;
+    return mergePartColorDefaults(
+      base,
+      getTrendingPartColorOverrides(relatedShowcase, selectedProduct)
+    );
+  }, [selectedProduct, selectedCategory, trendingStyleColorsActive, relatedShowcase]);
 
   const activeProductType = selectedProduct?.product_type || selectedCategory;
   const isPant = activeProductType === "pant";

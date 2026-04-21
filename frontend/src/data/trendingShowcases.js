@@ -179,3 +179,40 @@ export function getTrendingShowcase(slugOrId) {
   if (!key || /^\d+$/.test(key)) return null;
   return bySlug.get(key) || null;
 }
+
+/**
+ * Hero-style primary hex per showcase (catalog SKU may differ from the look on the card).
+ * Used on Customize when the user selects the related catalog base for that trending entry.
+ */
+const SHOWCASE_PRIMARY_HEX = {
+  "festive-beige-set": "#e6ddcf",
+  "classic-daura-set": "#f4f1ea",
+  "green-off-shoulder-top": "#355040",
+  "floral-maxi-skirt": "#181818",
+  "olive-long-coat": "#4a5438",
+  "green-jogger-pants": "#2f4d38",
+  "bridal-golden-lehenga": "#c9a227",
+  "grey-drawstring-pants": "#8e9298",
+  "sky-blue-button-top": "#7eb6eb",
+  "puff-sleeve-blue-top": "#3d6aa8",
+  "berry-zip-knit-top": "#8b2f5c",
+  "maroon-floral-cardigan": "#6b2435",
+  "taupe-wrap-skirt": "#a89884",
+};
+
+/**
+ * @param {{ showcaseSlug?: string } | null} showcaseEntry
+ * @param {{ product_type?: string } | null} catalogProduct
+ * @returns {Record<string, string>}
+ */
+export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
+  if (!showcaseEntry?.showcaseSlug || !catalogProduct) return {};
+  const primary = SHOWCASE_PRIMARY_HEX[showcaseEntry.showcaseSlug];
+  if (!primary) return {};
+  const type = String(catalogProduct.product_type || "").toLowerCase();
+  if (type === "pant") return { front: primary, back: primary };
+  if (type === "skirt") return { front: primary, back: primary, side: primary };
+  if (type === "hoodie" || type === "jacket") return { body: primary, sleeves: primary };
+  if (type === "tshirt") return { body: primary };
+  return { body: primary, sleeves: primary, collar: primary };
+}
