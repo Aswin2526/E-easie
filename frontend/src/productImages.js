@@ -34,7 +34,6 @@ import skirtBrownMaxi from "./assets/skirts/brown-high-waist-pleated-maxi-skirt.
 import skirtBlackBodycon from "./assets/skirts/black-bodycon-mini-skirt.png";
 import skirtBlackRuchedMaxi from "./assets/skirts/black-ruched-side-slit-maxi-skirt.png";
 import skirtWhiteMiniSlit from "./assets/skirts/white-mini-side-slit-skirt.png";
-import skirtDenimPencil from "./assets/skirts/high-waist-denim-pencil-skirt.png";
 import pantBeigeTailored from "./assets/pants/classic-beige-tailored-trousers.png";
 import pantOliveChinoShorts from "./assets/pants/olive-chino-shorts.png";
 import pantKhakiLinenShorts from "./assets/pants/khaki-linen-shorts.png";
@@ -107,7 +106,6 @@ const SKIRT_IMAGES_BY_SLUG = {
   "black-bodycon-mini-skirt": skirtBlackBodycon,
   "black-ruched-side-slit-maxi-skirt": skirtBlackRuchedMaxi,
   "white-mini-side-slit-skirt": skirtWhiteMiniSlit,
-  "high-waist-denim-pencil-skirt": skirtDenimPencil,
 };
 
 const PANT_IMAGES_BY_SLUG = {

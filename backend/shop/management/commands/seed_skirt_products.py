@@ -65,13 +65,6 @@ SKIRT_ITEMS = [
         "699",
         "skirt-white-mini-side-slit.png",
     ),
-    (
-        "high-waist-denim-pencil-skirt",
-        "High-Waist Denim Pencil Skirt",
-        "Medium-wash denim midi with five-pocket styling, zip fly, and a front-side hem slit.",
-        "1199",
-        "skirt-high-waist-denim-pencil.png",
-    ),
 ]
 
 
@@ -82,11 +75,19 @@ def _remove_legacy_midi_skirt():
         product.delete()
 
 
+def _remove_high_waist_denim_pencil_skirt():
+    for product in Product.objects.filter(slug="high-waist-denim-pencil-skirt"):
+        for cust in product.customizations.all():
+            Order.objects.filter(customization=cust).delete()
+        product.delete()
+
+
 class Command(BaseCommand):
     help = "Seed skirt products with photos; removes legacy seed_demo 'Midi Skirt'."
 
     def handle(self, *args, **options):
         _remove_legacy_midi_skirt()
+        _remove_high_waist_denim_pencil_skirt()
 
         media_products = Path(settings.MEDIA_ROOT) / "products"
         media_products.mkdir(parents=True, exist_ok=True)

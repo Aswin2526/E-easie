@@ -10,7 +10,6 @@ SPECIAL_SLUG_COLORS: dict[str, dict[str, str]] = {
     },
     "hooded-denim-hybrid-jacket": {"body": "#94a3b8", "sleeves": "#cbd5e1"},
     "short-sleeve-textured-denim-jacket": {"body": "#64748b", "sleeves": "#64748b"},
-    "high-waist-denim-pencil-skirt": {"front": "#5c6b7a", "back": "#5c6b7a", "side": "#6b7c8f"},
     "adidas-3stripes-khaki-hooded": {"body": "#c4b896", "sleeves": "#a89b7a"},
 }
 
