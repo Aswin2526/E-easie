@@ -264,8 +264,8 @@ const styles = {
   badge: {
     fontSize: "11px",
     fontWeight: 800,
-    background: "#e60023",
-    color: "#fff",
+    background: "#d8ecff",
+    color: "#123a69",
     borderRadius: "50%",
     minWidth: "22px",
     height: "22px",

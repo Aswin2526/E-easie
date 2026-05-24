@@ -329,14 +329,14 @@ export default function DirectCheckoutPage() {
                 </p>
               </div>
               <button type="button" style={s.textBtn} onClick={() => setStep("address")}>
-                Edit address
+                Edit Shipping Detail
               </button>
               <div style={{ marginTop: "20px" }}>
                 <button type="button" disabled={esewaBusy} style={s.esewaBtn} onClick={handleEsewa}>
                   {esewaBusy ? "Starting eSewa…" : "Pay with eSewa"}
                 </button>
                 <p style={s.payHint}>
-                  eSewa opens in a secure window. Test wallet: 9806800001 / Nepal@123 (token 123456).
+                  Test wallet: 9806800001 / Nepal@123 (token 123456).
                 </p>
               </div>
             </div>

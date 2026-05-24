@@ -209,7 +209,15 @@ export function getTrendingPartColorOverrides(showcaseEntry, catalogProduct) {
   if (!showcaseEntry?.showcaseSlug || !catalogProduct) return {};
   const primary = SHOWCASE_PRIMARY_HEX[showcaseEntry.showcaseSlug];
   if (!primary) return {};
-  const type = String(catalogProduct.product_type || "").toLowerCase();
+  let type = String(catalogProduct.product_type || "").toLowerCase();
+  const slug = showcaseEntry.showcaseSlug;
+  if (["festive-beige-set", "floral-maxi-skirt", "taupe-wrap-skirt", "bridal-golden-lehenga"].includes(slug)) {
+    type = "skirt";
+  } else if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
+    type = "pant";
+  } else if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top", "berry-zip-knit-top", "maroon-floral-cardigan"].includes(slug)) {
+    type = "tshirt";
+  }
   if (type === "pant") return { front: primary, back: primary };
   if (type === "skirt") return { front: primary, back: primary, side: primary };
   if (type === "hoodie" || type === "jacket") return { body: primary, sleeves: primary };

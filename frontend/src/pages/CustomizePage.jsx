@@ -20,6 +20,8 @@ import { BUY_NOW_OUT_OF_STOCK_TOAST, getProductStockQty, isProductOutOfStock } f
 import {
   getTrendingPartColorOverrides,
   getTrendingShowcase,
+  trendingShowcaseBase,
+  trendingShowcaseMore,
 } from "../data/trendingShowcases";
 import ProductStarsLine from "../components/ProductStarsLine";
 import ProductSpecsPanel from "../components/ProductSpecsPanel";
@@ -27,6 +29,7 @@ import { useNotify } from "../contexts/NotifyContext";
 
 
 const PRIMARY_CATEGORIES = [
+  { type: "trending", label: "🔥 Trending Styles" },
   { type: "pant", label: "Pant" },
   { type: "skirt", label: "Skirt" },
   { type: "hoodie", label: "Hoodie" },
@@ -69,6 +72,7 @@ export default function CustomizePage() {
   const [error, setError] = useState(null);
 
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [hoveredCategory, setHoveredCategory] = useState(null);
   const [productId, setProductId] = useState(primaryFromUrl || productFromUrl || "");
   const [userPickedProduct, setUserPickedProduct] = useState(() => {
     const fromUrl = Boolean(primaryFromUrl || productFromUrl);
@@ -115,6 +119,7 @@ export default function CustomizePage() {
   const [savedCustomizationId, setSavedCustomizationId] = useState(null);
 
   const [orderQty, setOrderQty] = useState(1);
+  // eslint-disable-next-line no-unused-vars
   const [shippingAddress, setShippingAddress] = useState("");
   const [ordering, setOrdering] = useState(false);
 
@@ -183,30 +188,81 @@ export default function CustomizePage() {
     for (const p of products) {
       m[p.product_type] = (m[p.product_type] || 0) + 1;
     }
+    const trendingSlugs = [
+      ...trendingShowcaseBase.map((x) => x.catalogSlug),
+      ...trendingShowcaseMore.map((x) => x.catalogSlug),
+    ];
+    m["trending"] = products.filter((p) => trendingSlugs.includes(p.slug)).length;
     return m;
   }, [products]);
 
   const productsInCategory = useMemo(() => {
     if (!selectedCategory) return [];
+    if (selectedCategory === "trending") {
+      return [
+        ...trendingShowcaseBase.map((x) => ({ ...x, isTrendingItem: true })),
+        ...trendingShowcaseMore.map((x) => ({ ...x, isTrendingItem: true })),
+      ];
+    }
     return products
       .filter((p) => p.product_type === selectedCategory)
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [products, selectedCategory]);
 
   useEffect(() => {
-    if (!productId) return;
-    const stillVisible = productsInCategory.some(
-      (p) => String(p.id) === String(productId)
-    );
-    if (!stillVisible) {
-      setProductId("");
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("product");
-        return next;
-      });
+    if (!productsInCategory.length) return;
+
+    // Check if the current product is visible in the active category list
+    const isTrending = selectedCategory === "trending";
+    const stillVisible = productsInCategory.some((p) => {
+      if (isTrending) {
+        return p.isTrendingItem && p.showcaseSlug === showcaseFromUrl;
+      }
+      return String(p.id) === String(productId);
+    });
+
+    if (!productId || !stillVisible) {
+      // Auto-select the first product in this category
+      const first = productsInCategory[0];
+      if (first.isTrendingItem) {
+        // Auto-select first trending item using its catalog slug
+        const catalogProduct = products.find((x) => x.slug === first.catalogSlug);
+        if (catalogProduct) {
+          const sid = String(catalogProduct.id);
+          setProductId(sid);
+          setUserPickedProduct(false);
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("product", sid);
+            next.set("primary", sid);
+            next.set("category", selectedCategory);
+            next.set("showcase", first.showcaseSlug);
+            return next;
+          });
+        }
+      } else {
+        // Auto-select first generic product
+        const sid = String(first.id);
+        setProductId(sid);
+        setUserPickedProduct(true);
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("product", sid);
+          next.set("primary", sid);
+          next.set("category", selectedCategory);
+          next.delete("showcase");
+          return next;
+        });
+      }
     }
-  }, [productsInCategory, productId, setSearchParams]);
+  }, [
+    productsInCategory,
+    productId,
+    products,
+    selectedCategory,
+    showcaseFromUrl,
+    setSearchParams,
+  ]);
 
   function handleSelectCategory(type) {
     setSelectedCategory(type);
@@ -232,6 +288,23 @@ export default function CustomizePage() {
       next.set("product", sid);
       next.set("primary", sid);
       if (selectedCategory) next.set("category", selectedCategory);
+      if (secondaryProductId) next.set("secondary", secondaryProductId);
+      return next;
+    });
+  }
+
+  function handleSelectTrendingItem(item) {
+    const catalogProduct = products.find((x) => x.slug === item.catalogSlug);
+    if (!catalogProduct) return;
+    const sid = String(catalogProduct.id);
+    setProductId(sid);
+    setUserPickedProduct(false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("product", sid);
+      next.set("primary", sid);
+      next.set("category", "trending");
+      next.set("showcase", item.showcaseSlug);
       if (secondaryProductId) next.set("secondary", secondaryProductId);
       return next;
     });
@@ -271,7 +344,7 @@ export default function CustomizePage() {
   }, [selectedProduct, userPickedProduct, relatedShowcase]);
 
   const trendingStyleColorsActive = Boolean(
-    userPickedProduct &&
+    !userPickedProduct &&
       relatedShowcase &&
       selectedProduct?.slug === relatedShowcase.catalogSlug
   );
@@ -302,7 +375,7 @@ export default function CustomizePage() {
     const df = String(selectedProduct.default_fabric || "cotton").toLowerCase();
     const allowedFabrics = FABRICS.map((x) => x.value);
     setFabric(allowedFabrics.includes(df) ? df : "cotton");
-  }, [productColorDefaultsKey, selectedCategory, trendingStyleColorsActive, relatedShowcase]);
+  }, [productColorDefaultsKey, selectedCategory, trendingStyleColorsActive, relatedShowcase, selectedProduct]);
 
   const catalogPartColorRef = useMemo(() => {
     if (!selectedProduct) return {};
@@ -314,7 +387,21 @@ export default function CustomizePage() {
     );
   }, [selectedProduct, selectedCategory, trendingStyleColorsActive, relatedShowcase]);
 
-  const activeProductType = selectedProduct?.product_type || selectedCategory;
+  const activeProductType = useMemo(() => {
+    if (relatedShowcase) {
+      const slug = relatedShowcase.showcaseSlug;
+      if (["festive-beige-set", "floral-maxi-skirt", "taupe-wrap-skirt", "bridal-golden-lehenga"].includes(slug)) {
+        return "skirt";
+      }
+      if (["classic-daura-set", "green-jogger-pants", "grey-drawstring-pants"].includes(slug)) {
+        return "pant";
+      }
+      if (["green-off-shoulder-top", "sky-blue-button-top", "puff-sleeve-blue-top", "berry-zip-knit-top", "maroon-floral-cardigan"].includes(slug)) {
+        return "tshirt";
+      }
+    }
+    return selectedProduct?.product_type || selectedCategory;
+  }, [selectedProduct, selectedCategory, relatedShowcase]);
   const isPant = activeProductType === "pant";
   const isSkirt = activeProductType === "skirt";
   const isHoodie = activeProductType === "hoodie";
@@ -574,20 +661,31 @@ export default function CustomizePage() {
           {PRIMARY_CATEGORIES.map(({ type, label }) => {
             const count = countByType[type] ?? 0;
             const active = selectedCategory === type;
+            const isTrending = type === "trending";
+            const hovered = hoveredCategory === type;
             return (
               <button
                 key={type}
                 type="button"
                 onClick={() => handleSelectCategory(type)}
+                onMouseEnter={() => setHoveredCategory(type)}
+                onMouseLeave={() => setHoveredCategory(null)}
                 style={{
                   ...s.categoryChip,
-                  ...(active ? s.categoryChipSelected : {}),
+                  ...(active ? (isTrending ? s.trendingChipSelected : s.categoryChipSelected) : {}),
+                  ...(isTrending && !active ? s.trendingChipUnselected : {}),
+                  ...(hovered && !active ? { borderColor: isTrending ? "#f87171" : "#1a1a2e", background: isTrending ? "#fff5f5" : "#f4f6fa" } : {}),
                   opacity: count === 0 ? 0.45 : 1,
                 }}
                 aria-pressed={active}
                 disabled={count === 0}
               >
-                <span style={s.categoryLabel}>{label}</span>
+                <span style={{
+                  ...s.categoryLabel,
+                  ...(isTrending && active ? { color: "#e11d48" } : {})
+                }}>
+                  {label}
+                </span>
                 <span style={s.categoryCount}>{count} items</span>
               </button>
             );
@@ -610,7 +708,7 @@ export default function CustomizePage() {
               ...(selectedCategory ? s.productBrowseColScrollable : {}),
             }}
           >
-            {relatedShowcase && relatedCatalogProduct ? (
+            {relatedShowcase && relatedCatalogProduct && selectedCategory !== "trending" ? (
               <div style={s.relatedPanel}>
                 <p style={s.relatedLabel}>Related item from trending style</p>
                 <button
@@ -645,12 +743,24 @@ export default function CustomizePage() {
             {selectedCategory && productsInCategory.length > 0 && (
               <div style={s.productGrid}>
                 {productsInCategory.map((p) => {
-                  const selected = userPickedProduct && String(productId) === String(p.id);
+                  const isTrending = p.isTrendingItem;
+                  const selected = isTrending
+                    ? relatedShowcase?.showcaseSlug === p.showcaseSlug
+                    : userPickedProduct && String(productId) === String(p.id);
+
+                  const handleSelect = () => {
+                    if (isTrending) {
+                      handleSelectTrendingItem(p);
+                    } else {
+                      handleSelectProduct(p.id);
+                    }
+                  };
+
                   return (
                     <button
-                      key={p.id}
+                      key={isTrending ? p.showcaseSlug : p.id}
                       type="button"
-                      onClick={() => handleSelectProduct(p.id)}
+                      onClick={handleSelect}
                       style={{
                         ...s.productCard,
                         ...(selected ? s.productCardSelected : {}),
@@ -659,17 +769,35 @@ export default function CustomizePage() {
                     >
                       <div style={s.productThumbWrap}>
                         <img
-                          src={getProductImageSrc(p)}
+                          src={isTrending ? p.img : getProductImageSrc(p)}
                           alt=""
-                          style={{ ...s.productThumbImg, ...getProductImageStyle(p) }}
+                          style={{
+                            ...s.productThumbImg,
+                            ...(!isTrending ? getProductImageStyle(p) : {}),
+                          }}
                         />
                       </div>
                       <div style={s.productCardBody}>
-                        <span style={s.productName}>{p.name}</span>
-                        <ProductStarsLine average={p.rating_average} count={p.rating_count} />
-                        <span style={s.productPrice}>{formatNPR(p.base_price)}</span>
+                        <span style={s.productName}>{isTrending ? p.title : p.name}</span>
+                        {isTrending ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <span style={{ color: "#e11d48", fontWeight: "bold", fontSize: "12px" }}>🔥 Trending Style</span>
+                          </div>
+                        ) : (
+                          <ProductStarsLine average={p.rating_average} count={p.rating_count} />
+                        )}
+                        <span style={s.productPrice}>{formatNPR(isTrending ? p.price : p.base_price)}</span>
                       </div>
-                      {selected && <span style={s.selectedTag}>Selected</span>}
+                      {selected && (
+                        <span
+                          style={{
+                            ...s.selectedTag,
+                            ...(isTrending ? { background: "#e11d48" } : {}),
+                          }}
+                        >
+                          Selected
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -678,7 +806,7 @@ export default function CustomizePage() {
             {selectedCategory && productId && selectedProduct && orderUnitPrice != null && (
               <>
                 <p style={s.selectionSummary}>
-                  Customizing: <strong>{selectedProduct.name}</strong> ·{" "}
+                  Customizing: <strong>{relatedShowcase?.catalogSlug === selectedProduct.slug ? relatedShowcase.title : selectedProduct.name}</strong> ·{" "}
                   {formatNPR(orderUnitPrice)}
                   {orderPriceBreakdownNote}
                 </p>
@@ -1310,6 +1438,15 @@ const s = {
     background: "#eef0f5",
     boxShadow: "0 0 0 1px #1a1a2e",
   },
+  trendingChipSelected: {
+    border: "2px solid #e11d48",
+    background: "#fff1f2",
+    boxShadow: "0 0 0 1px #e11d48",
+  },
+  trendingChipUnselected: {
+    borderColor: "#fecdd3",
+    background: "#fff5f5",
+  },
   categoryLabel: { fontWeight: "700", fontSize: "14px", color: "#1a1a2e" },
   categoryCount: { fontSize: "12px", color: "#6b7280" },
   productGrid: {
@@ -1500,7 +1637,10 @@ const s = {
   },
   /** When a category is selected (split layout), only this column scrolls; form stays sticky. */
   productBrowseColScrollable: {
-    maxHeight: "calc(100vh - 220px)",
+    position: "sticky",
+    top: 20,
+    alignSelf: "flex-start",
+    maxHeight: "calc(100vh - 40px)",
     overflowY: "auto",
     overscrollBehavior: "contain",
     paddingRight: "10px",

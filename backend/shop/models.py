@@ -70,7 +70,7 @@ class Product(models.Model):
 
 
 class ProductRating(models.Model):
-    """Logged-in user rates a product (1–5 stars); one rating per user per product (updated on resubmit)."""
+    """Logged-in user rates a product (1-5 stars); one rating per user per product (updated on resubmit)."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

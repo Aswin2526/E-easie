@@ -80,7 +80,7 @@ export default function ProductDetailPage() {
 
   function customizeHref(p) {
     const q = new URLSearchParams({
-      category: p.product_type,
+      category: showcase?.showcaseSlug ? "trending" : p.product_type,
       product: String(p.id),
       primary: String(p.id),
     });

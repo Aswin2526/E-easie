@@ -83,7 +83,7 @@ def login_user(request):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         if not user.is_active:
             return Response(
-                {"error": "Your account is blocked. Please contact support."},
+                {"error": "Your account is blocked. Please contact support!"},
                 status=status.HTTP_403_FORBIDDEN,
             )
         user_auth = authenticate(username=user.username, password=password)
@@ -450,6 +450,44 @@ def _admin_order_payload(order):
     }
 
 
+def _admin_product_payload(request, product, ordered_qty_by_product=None):
+    if ordered_qty_by_product is None:
+        ordered_qty_by_product = {
+            row["customization__product_id"]: int(row["ordered_qty"] or 0)
+            for row in (
+                Order.objects.exclude(status=Order.Status.CANCELLED)
+                .values("customization__product_id")
+                .annotate(ordered_qty=Sum("quantity"))
+            )
+        }
+
+    image_url = None
+    if product.image and product.image.name:
+        try:
+            image_url = request.build_absolute_uri(product.image.url)
+        except Exception:
+            image_url = None
+
+    ordered_qty = ordered_qty_by_product.get(product.id, 0)
+    available_qty = max(0, int(product.quantity or 0) - ordered_qty)
+    return {
+        "id": product.id,
+        "name": product.name,
+        "slug": product.slug,
+        "product_type": product.product_type,
+        "description": product.description or "",
+        "material": product.material or "",
+        "care_instructions": product.care_instructions or "",
+        "fit_notes": product.fit_notes or "",
+        "highlights": product.highlights or "",
+        "base_price": str(product.base_price),
+        "quantity": available_qty,
+        "is_active": product.is_active,
+        "image": image_url,
+        "created_at": product.created_at,
+    }
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def admin_orders_list(request):
@@ -532,7 +570,7 @@ def admin_order_detail(request, order_id):
                     (
                         f"Hello {recipient_name},\n\n"
                         f"Your order #{order.id} has been successfully delivered.\n"
-                        "Thank you for shopping with E-easie."
+                        "Thank you for shopping with E-easie.Visit again for more amazing products!"
                     ),
                     [recipient_email],
                 )
@@ -555,32 +593,6 @@ def admin_products_list(request):
             .annotate(ordered_qty=Sum("quantity"))
         )
     }
-
-    def _product_payload(p):
-        image_url = None
-        if p.image and p.image.name:
-            try:
-                image_url = request.build_absolute_uri(p.image.url)
-            except Exception:
-                image_url = None
-        ordered_qty = ordered_qty_by_product.get(p.id, 0)
-        available_qty = max(0, int(p.quantity or 0) - ordered_qty)
-        return {
-            "id": p.id,
-            "name": p.name,
-            "slug": p.slug,
-            "product_type": p.product_type,
-            "description": p.description or "",
-            "material": p.material or "",
-            "care_instructions": p.care_instructions or "",
-            "fit_notes": p.fit_notes or "",
-            "highlights": p.highlights or "",
-            "base_price": str(p.base_price),
-            "quantity": available_qty,
-            "is_active": p.is_active,
-            "image": image_url,
-            "created_at": p.created_at,
-        }
 
     if request.method == "POST":
         name = str(request.data.get("name", "")).strip()
@@ -634,11 +646,14 @@ def admin_products_list(request):
             image=image,
             is_active=is_active,
         )
-        return Response({"product": _product_payload(p), "message": "Product created."}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"product": _admin_product_payload(request, p, ordered_qty_by_product), "message": "Product created."},
+            status=status.HTTP_201_CREATED,
+        )
 
     products = []
     for p in Product.objects.all().order_by("name"):
-        products.append(_product_payload(p))
+        products.append(_admin_product_payload(request, p, ordered_qty_by_product))
     return Response({"products": products})
 
 
@@ -701,7 +716,7 @@ def admin_product_detail(request, product_id):
         )
 
     product.save(update_fields=list(dict.fromkeys(update_fields)))
-    return Response({"product": _product_payload(product), "message": "Product updated."})
+    return Response({"product": _admin_product_payload(request, product), "message": "Product updated."})
 
 
 @api_view(["GET"])

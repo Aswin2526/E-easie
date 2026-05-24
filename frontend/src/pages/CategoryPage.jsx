@@ -38,7 +38,6 @@ function matchesPriceBand(priceN, band) {
   return true;
 }
 
-/** Map URL param to a controlled <select> value (supports older bookmarked links). */
 function priceParamToSelectValue(raw) {
   const v = String(raw || "").trim().toLowerCase();
   if (!v || v === "all") return "all";
@@ -186,14 +185,7 @@ export default function CategoryPage() {
     return "all";
   }, [searchParams]);
 
-  const activeFilterCount = useMemo(() => {
-    let n = 0;
-    const rawCat = (searchParams.get("cat") || "").trim().toLowerCase();
-    if (rawCat && CATALOG_CATEGORY_SLUGS.includes(rawCat)) n += 1;
-    if ((searchParams.get("price") || "all") !== "all") n += 1;
-    if ((searchParams.get("sort") || "name") !== "name") n += 1;
-    return n;
-  }, [searchParams]);
+
 
   function setParam(key, value, emptyValues) {
     setSearchParams(
@@ -208,16 +200,7 @@ export default function CategoryPage() {
     );
   }
 
-  function clearProductFilters() {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        ["cat", "price", "stars", "sort", "q"].forEach((k) => next.delete(k));
-        return next;
-      },
-      { replace: true },
-    );
-  }
+
 
   function handleCategoryFilterChange(e) {
     const v = (e.target.value || "all").trim().toLowerCase();
@@ -421,16 +404,12 @@ export default function CategoryPage() {
               <option value="rating">Highest rated</option>
             </select>
           </div>
-          {activeFilterCount > 0 ? (
-            <button type="button" style={page.filterClear} onClick={clearProductFilters}>
-              Clear filters ({activeFilterCount})
-            </button>
-          ) : null}
+
         </div>
       </section>
 
       {sortedSectionEntries.length === 0 ? (
-        <p style={page.emptyText}>No products match your filters or search.</p>
+        <p style={page.emptyText}>No products match your filters or search. Try another !!</p>
       ) : null}
 
       {sortedSectionEntries.map(([typeName, items]) => (
@@ -556,19 +535,7 @@ const page = {
     width: "100%",
     maxWidth: "220px",
   },
-  filterClear: {
-    marginLeft: "auto",
-    alignSelf: "center",
-    border: "1px solid #cbd5e1",
-    borderRadius: "10px",
-    background: "#f8fafc",
-    color: "#334155",
-    fontSize: "13px",
-    fontWeight: 700,
-    fontFamily: "inherit",
-    padding: "8px 12px",
-    cursor: "pointer",
-  },
+
   title: { fontSize: "28px", fontWeight: "800", color: "#1a1a2e" },
   sub: { marginTop: "10px", color: "#555", maxWidth: "560px" },
   searchInfo: { marginTop: "8px", color: "#1a1a2e", fontSize: "14px" },

@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 const NotifyContext = createContext(null);
 
 const VARIANT_META = {
-  success: { accent: "#059669", iconBg: "#d1fae5", iconColor: "#047857", glyph: "✓" },
+  success: { accent: "#3b82f6", iconBg: "#dbeafe", iconColor: "#1d4ed8", glyph: "✓" },
   error: { accent: "#dc2626", iconBg: "#fee2e2", iconColor: "#b91c1c", glyph: "!" },
   warning: { accent: "#d97706", iconBg: "#fef3c7", iconColor: "#b45309", glyph: "!" },
   info: { accent: "#2563eb", iconBg: "#dbeafe", iconColor: "#1d4ed8", glyph: "i" },
